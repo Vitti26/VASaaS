@@ -1,0 +1,365 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PlanType {
+  STARTER
+  PRO
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  STAFF
+}
+
+enum TaxCategory {
+  CONSUMIDOR_FINAL
+  MONOTRIBUTO
+  RESPONSABLE_INSCRIPTO
+  EXENTO
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum UnitType {
+  UNIT
+  KG
+  LITER
+  MILLILITER
+  GRAM
+}
+
+enum MovementType {
+  IN
+  OUT
+  ADJUSTMENT
+  SALE
+  SERVICE_USAGE
+}
+
+enum InvoiceType {
+  FACTURA_A
+  FACTURA_B
+  FACTURA_C
+  NOTA_CREDITO_A
+  NOTA_CREDITO_B
+  NOTA_CREDITO_C
+  PRESUPUESTO
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  ANNULLED
+}
+
+enum AfipEnv {
+  HOMOLOGATION
+  PRODUCTION
+}
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  plan      PlanType @default(STARTER)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  branches       Branch[]
+  users          User[]
+  customers      Customer[]
+  services       Service[]
+  products       Product[]
+  appointments   Appointment[]
+  branchStocks   BranchStock[]
+  stockMovements StockMovement[]
+  invoices       Invoice[]
+  afipConfigs    AfipConfig[]
+  subscriptions  Subscription[]
+
+  @@map("tenants")
+}
+
+model Subscription {
+  id               String             @id @default(uuid())
+  tenantId         String             @map("tenant_id")
+  mpSubscriptionId String?            @map("mp_subscription_id")
+  status           SubscriptionStatus @default(TRIALING)
+  trialEndsAt      DateTime?          @map("trial_ends_at")
+  currentPeriodEnd DateTime?          @map("current_period_end")
+  createdAt        DateTime           @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("subscriptions")
+}
+
+model Branch {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  name      String
+  address   String?
+  phone     String?
+  city      String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userBranches   UserBranch[]
+  appointments   Appointment[]
+  branchStocks   BranchStock[]
+  stockMovements StockMovement[]
+  invoices       Invoice[]
+
+  @@index([tenantId])
+  @@map("branches")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  email        String
+  passwordHash String   @map("password_hash")
+  name         String
+  role         Role     @default(STAFF)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userBranches UserBranch[]
+  appointments Appointment[] @relation("StaffAppointments")
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("users")
+}
+
+model UserBranch {
+  userId   String @map("user_id")
+  branchId String @map("branch_id")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([userId, branchId])
+  @@map("user_branches")
+}
+
+model Customer {
+  id          String      @id @default(uuid())
+  tenantId    String      @map("tenant_id")
+  name        String
+  email       String?
+  phone       String?
+  docType     String      @default("DNI") @map("doc_type")
+  docNumber   String?     @map("doc_number")
+  taxCategory TaxCategory @default(CONSUMIDOR_FINAL) @map("tax_category")
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+  invoices     Invoice[]
+
+  @@index([tenantId])
+  @@map("customers")
+}
+
+model Service {
+  id              String   @id @default(uuid())
+  tenantId        String   @map("tenant_id")
+  name            String
+  description     String?
+  durationMinutes Int      @map("duration_minutes")
+  price           Decimal  @db.Decimal(12, 2)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recipes      ServiceRecipe[]
+  appointments Appointment[]
+
+  @@index([tenantId])
+  @@map("services")
+}
+
+model ServiceRecipe {
+  id           String  @id @default(uuid())
+  serviceId    String  @map("service_id")
+  productId    String  @map("product_id")
+  quantityUsed Decimal @map("quantity_used") @db.Decimal(10, 3)
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, productId])
+  @@map("service_recipes")
+}
+
+model Appointment {
+  id         String            @id @default(uuid())
+  tenantId   String            @map("tenant_id")
+  branchId   String            @map("branch_id")
+  staffId    String            @map("staff_id")
+  customerId String            @map("customer_id")
+  serviceId  String            @map("service_id")
+  startAt    DateTime          @map("start_at")
+  endAt      DateTime          @map("end_at")
+  status     AppointmentStatus @default(PENDING)
+  notes      String?
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch   Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  staff    User     @relation("StaffAppointments", fields: [staffId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+  service  Service  @relation(fields: [serviceId], references: [id])
+  invoice  Invoice?
+
+  @@index([tenantId, branchId])
+  @@index([staffId, startAt])
+  @@map("appointments")
+}
+
+model Product {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  name           String
+  sku            String?
+  unit           UnitType @default(UNIT)
+  price          Decimal  @db.Decimal(12, 2)
+  cost           Decimal  @default(0) @db.Decimal(12, 2)
+  minStockAlert  Decimal  @default(0) @map("min_stock_alert") @db.Decimal(10, 3)
+  isServiceInput Boolean  @default(false) @map("is_service_input")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchStocks   BranchStock[]
+  stockMovements StockMovement[]
+  recipes        ServiceRecipe[]
+  invoiceItems   InvoiceItem[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
+  @@map("products")
+}
+
+model BranchStock {
+  id        String  @id @default(uuid())
+  tenantId  String  @map("tenant_id")
+  branchId  String  @map("branch_id")
+  productId String  @map("product_id")
+  quantity  Decimal @default(0) @db.Decimal(10, 3)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, productId])
+  @@index([tenantId, branchId])
+  @@map("branch_stocks")
+}
+
+model StockMovement {
+  id          String       @id @default(uuid())
+  tenantId    String       @map("tenant_id")
+  branchId    String       @map("branch_id")
+  productId   String       @map("product_id")
+  type        MovementType
+  quantity    Decimal      @db.Decimal(10, 3)
+  reason      String?
+  referenceId String?      @map("reference_id")
+  createdById String       @map("created_by_id")
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, branchId])
+  @@map("stock_movements")
+}
+
+model AfipConfig {
+  id         String  @id @default(uuid())
+  tenantId   String  @map("tenant_id")
+  cuit       String
+  certPem    String  @map("cert_pem") @db.Text
+  keyPem     String  @map("key_pem") @db.Text
+  salesPoint Int     @map("sales_point")
+  env        AfipEnv @default(HOMOLOGATION)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, cuit])
+  @@map("afip_configs")
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  tenantId      String        @map("tenant_id")
+  branchId      String        @map("branch_id")
+  appointmentId String?       @unique @map("appointment_id")
+  customerId    String        @map("customer_id")
+  invoiceType   InvoiceType   @map("invoice_type")
+  salesPoint    Int           @map("sales_point")
+  number        Int?
+  cae           String?
+  caeExpiration DateTime?     @map("cae_expiration")
+  subtotal      Decimal       @db.Decimal(12, 2)
+  taxTotal      Decimal       @default(0) @db.Decimal(12, 2) @map("tax_total")
+  total         Decimal       @db.Decimal(12, 2)
+  status        InvoiceStatus @default(DRAFT)
+  afipRawData   String?       @map("afip_raw_data") @db.Text
+  createdById   String        @map("created_by_id")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  appointment Appointment?  @relation(fields: [appointmentId], references: [id])
+  customer    Customer      @relation(fields: [customerId], references: [id])
+  items       InvoiceItem[]
+
+  @@index([tenantId, branchId])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid())
+  invoiceId   String   @map("invoice_id")
+  productId   String?  @map("product_id")
+  description String
+  quantity    Decimal  @db.Decimal(10, 3)
+  unitPrice   Decimal  @map("unit_price") @db.Decimal(12, 2)
+  vatRate     Decimal  @default(21.0) @map("vat_rate") @db.Decimal(5, 2)
+  subtotal    Decimal  @db.Decimal(12, 2)
+
+  invoice Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@map("invoice_items")
+}
