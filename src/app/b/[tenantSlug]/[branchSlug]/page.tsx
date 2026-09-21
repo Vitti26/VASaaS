@@ -30,6 +30,7 @@ export default function PublicBookingPage({
 
   const todayStr = new Date().toISOString().split("T")[0];
 
+  const [formLoadedAt, setFormLoadedAt] = useState<number>(0);
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -39,9 +40,11 @@ export default function PublicBookingPage({
     date: todayStr,
     time: "14:00",
     notes: "",
+    website: "", // Honeypot field for anti-bot protection
   });
 
   useEffect(() => {
+    setFormLoadedAt(Date.now());
     async function loadData() {
       try {
         const data = await getPublicBranchDataAction(params.tenantSlug, params.branchSlug);
@@ -84,6 +87,8 @@ export default function PublicBookingPage({
         customerEmail: formData.email || undefined,
         startAt: startAtDate,
         notes: formData.notes,
+        website: formData.website,
+        formLoadedAt,
       });
 
       if (res.success && res.appointment) {
@@ -170,6 +175,17 @@ export default function PublicBookingPage({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 text-sm">
+            {/* Anti-bot honeypot input (hidden from real users, filled by automated spambots) */}
+            <input
+              type="text"
+              name="website"
+              value={formData.website}
+              onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+              className="hidden"
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+            />
             <div>
               <label className="block text-xs font-medium text-slate-300 mb-1">
                 Servicio Deseado

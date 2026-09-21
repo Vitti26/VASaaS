@@ -135,13 +135,45 @@ export async function getPublicBranchDataAction(tenantSlug: string, branchSlug: 
   };
 }
 
-export async function createPublicBookingAction(input: PublicBookingInput) {
+import { checkRateLimit, checkTenantBookingRateLimit, checkPhoneBookingLimit } from "@/modules/shared/infrastructure/rate-limiter";
+
+export async function createPublicBookingAction(input: PublicBookingInput, clientIp: string = "127.0.0.1") {
   const parsed = PublicBookingSchema.safeParse(input);
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
     throw new Error(firstIssue ? firstIssue.message : "Datos de reserva inválidos. Verifique la información ingresada.");
   }
   const validated = parsed.data;
+
+  // 1. Anti-bot honeypot check
+  if (validated.website && validated.website.trim() !== "") {
+    throw new Error("Solicitud bloqueada por protección anti-bot.");
+  }
+
+  // 2. Anti-bot form submission time check (minimum 1200ms human delay)
+  if (validated.formLoadedAt && Date.now() - validated.formLoadedAt < 1200) {
+    throw new Error("Reserva enviada demasiado rápido. Por favor intente nuevamente.");
+  }
+
+  // 3. Rate limit check by IP (max 5 bookings per minute per IP)
+  const ipCheck = checkRateLimit(`ip_booking:${clientIp}`, 5, 60 * 1000);
+  if (!ipCheck.allowed) {
+    throw new Error("Límite de solicitudes de reserva superado para su IP. Reintente en un minuto.");
+  }
+
+  // 4. Rate limit check by Tenant (max 30 bookings per minute per tenant)
+  const tenantCheck = checkTenantBookingRateLimit(validated.tenantSlug);
+  if (!tenantCheck) {
+    throw new Error("El sistema de reservas del negocio se encuentra recibiendo muchas solicitudes simultáneas. Intente nuevamente en unos instantes.");
+  }
+
+  // 5. Active booking quota per phone check (max 3 pending/confirmed active bookings per phone number)
+  const activeCountForPhone = fallbackAppointmentsStore.filter(
+    (a) => a.customerPhone === validated.customerPhone && (a.status === "PENDING" || a.status === "CONFIRMED")
+  ).length;
+  if (!checkPhoneBookingLimit(activeCountForPhone, 3)) {
+    throw new Error("El número de teléfono ya posee 3 reservas activas. No se pueden agendar más turnos simultáneos.");
+  }
 
   try {
     const result = await createPublicBookingService(validated, prismaAppointmentRepository);
