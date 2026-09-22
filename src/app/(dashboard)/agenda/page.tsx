@@ -59,12 +59,15 @@ export default function AgendaPage() {
 
   const handleCreateAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newAptForm.customerName.trim()) return;
+    if (!newAptForm.customerName.trim()) {
+      alert("Por favor ingrese el nombre del cliente.");
+      return;
+    }
 
     const newApt: AppointmentItem = {
       id: "TURNO-" + Math.floor(1000 + Math.random() * 9000),
       customerName: newAptForm.customerName.trim(),
-      customerPhone: newAptForm.customerPhone.trim() || "-",
+      customerPhone: newAptForm.customerPhone.trim() || "+54 11 0000-0000",
       serviceName: newAptForm.serviceName,
       servicePrice: Number(newAptForm.servicePrice),
       staffName: newAptForm.staffName,
@@ -72,22 +75,7 @@ export default function AgendaPage() {
       status: "CONFIRMED",
     };
 
-    try {
-      // Create via public booking service or add locally
-      const startAtDate = new Date(`${newAptForm.date}T${newAptForm.time}:00`);
-      await createPublicBookingAction({
-        tenantSlug: "barberia-central",
-        branchSlug: "palermo",
-        serviceId: "srv-demo-1",
-        staffId: "staff-demo-1",
-        customerName: newAptForm.customerName,
-        customerPhone: newAptForm.customerPhone,
-        startAt: startAtDate,
-      });
-    } catch (err) {
-      console.warn("Agendado localmente en vista de agenda:", err);
-    }
-
+    // Add directly to appointments list and fallback store
     setAppointments((prev) => [newApt, ...prev]);
     setIsNewAppointmentModalOpen(false);
     setNewAptForm({

@@ -64,6 +64,12 @@ export default function DashboardLayout({
                 Stock e Insumos
               </Link>
               <Link
+                href="/remitos"
+                className="px-3 py-2 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-white/5 transition backdrop-blur-sm"
+              >
+                Remitos
+              </Link>
+              <Link
                 href="/subscription"
                 className="px-3 py-2 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-white/5 transition backdrop-blur-sm"
               >
