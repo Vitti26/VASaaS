@@ -49,7 +49,7 @@ export default function DashboardLayout({
                 href="/services"
                 className="px-3 py-2 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-white/5 transition backdrop-blur-sm"
               >
-                Servicios & Recetas
+                Servicios
               </Link>
               <Link
                 href="/billing"

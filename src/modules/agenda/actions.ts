@@ -1,6 +1,6 @@
 "use server";
 
-import { db } from "@/modules/shared/infrastructure/db";
+import { db, withDbFallback } from "@/modules/shared/infrastructure/db";
 import { revalidatePath } from "next/cache";
 import { createPublicBookingService } from "./domain/appointment-service";
 import { PublicBookingInput, PublicBookingSchema } from "./domain/appointment";
@@ -31,7 +31,7 @@ const fallbackAppointmentsStore: any[] = [
 ];
 
 export async function getAppointmentsAction(tenantId?: string, branchId?: string) {
-  try {
+  return withDbFallback(async () => {
     let targetTenantId = tenantId;
     if (!targetTenantId) {
       const defaultTenant = await db.tenant.findFirst({ select: { id: true } });
@@ -66,14 +66,25 @@ export async function getAppointmentsAction(tenantId?: string, branchId?: string
       startAt: apt.startAt.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) + " hs",
       status: apt.status,
     }));
-  } catch (error) {
-    console.warn("DB offline, using fallback appointments store");
-    return fallbackAppointmentsStore;
-  }
+  }, fallbackAppointmentsStore);
 }
 
 export async function getPublicBranchDataAction(tenantSlug: string, branchSlug: string) {
-  try {
+  const fallbackDemoData = {
+    tenant: { id: "tenant-demo-1", name: "Barbería & Estética Central", slug: "barberia-central" },
+    branch: { id: "branch-demo-1", name: "Sucursal Palermo" },
+    services: [
+      { id: "srv-demo-1", name: "Corte de Cabello + Peinado", price: 9500, durationMinutes: 45 },
+      { id: "srv-demo-2", name: "Coloración + Lavado", price: 18000, durationMinutes: 90 },
+      { id: "srv-demo-3", name: "Servicio de Barba Express", price: 4500, durationMinutes: 20 },
+    ],
+    staff: [
+      { id: "staff-demo-1", name: "Juan Carlos Owner" },
+      { id: "staff-demo-2", name: "María Barbera" },
+    ],
+  };
+
+  return withDbFallback(async () => {
     const tenant = await db.tenant.findUnique({
       where: { slug: tenantSlug },
       select: { id: true, name: true, slug: true },
@@ -115,24 +126,8 @@ export async function getPublicBranchDataAction(tenantSlug: string, branchSlug: 
         }
       }
     }
-  } catch (error) {
-    console.warn("DB offline, returning demo branch data for public booking");
-  }
-
-  // Fallback demo data if DB is offline or empty
-  return {
-    tenant: { id: "tenant-demo-1", name: "Barbería & Estética Central", slug: "barberia-central" },
-    branch: { id: "branch-demo-1", name: "Sucursal Palermo" },
-    services: [
-      { id: "srv-demo-1", name: "Corte de Cabello + Peinado", price: 9500, durationMinutes: 45 },
-      { id: "srv-demo-2", name: "Coloración + Lavado", price: 18000, durationMinutes: 90 },
-      { id: "srv-demo-3", name: "Servicio de Barba Express", price: 4500, durationMinutes: 20 },
-    ],
-    staff: [
-      { id: "staff-demo-1", name: "Juan Carlos Owner" },
-      { id: "staff-demo-2", name: "María Barbera" },
-    ],
-  };
+    return fallbackDemoData;
+  }, fallbackDemoData);
 }
 
 import { checkRateLimit, checkTenantBookingRateLimit, checkPhoneBookingLimit } from "@/modules/shared/infrastructure/rate-limiter";

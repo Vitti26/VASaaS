@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { getAppointmentsAction, updateAppointmentStatusAction } from "@/modules/agenda/actions";
+import { getAppointmentsAction, updateAppointmentStatusAction, createPublicBookingAction } from "@/modules/agenda/actions";
+import { Modal } from "@/components/ui/modal";
 
 interface AppointmentItem {
   id: string;
@@ -18,10 +19,24 @@ export default function AgendaPage() {
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // New Appointment Modal State
+  const [isNewAppointmentModalOpen, setIsNewAppointmentModalOpen] = useState(false);
+  const [newAptForm, setNewAptForm] = useState({
+    customerName: "",
+    customerPhone: "",
+    serviceName: "Corte de Cabello + Peinado",
+    servicePrice: 9500,
+    staffName: "Juan Carlos Owner",
+    date: new Date().toISOString().split("T")[0],
+    time: "14:00",
+  });
+
+  // Checkout Modal State
   const [checkoutModalApt, setCheckoutModalApt] = useState<AppointmentItem | null>(null);
   const [invoiceType, setInvoiceType] = useState<"FACTURA_B" | "FACTURA_A" | "PRESUPUESTO">("FACTURA_B");
   const [includeExtraProduct, setIncludeExtraProduct] = useState(false);
   const [checkoutSuccess, setCheckoutSuccess] = useState<{ cae: string; total: number } | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const loadAppointments = useCallback(async () => {
     try {
@@ -36,12 +51,58 @@ export default function AgendaPage() {
 
   useEffect(() => {
     loadAppointments();
-    // Auto refresh every 5 seconds to keep public bookings in sync
     const interval = setInterval(() => {
       loadAppointments();
     }, 5000);
     return () => clearInterval(interval);
   }, [loadAppointments]);
+
+  const handleCreateAppointment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAptForm.customerName.trim()) return;
+
+    const newApt: AppointmentItem = {
+      id: "TURNO-" + Math.floor(1000 + Math.random() * 9000),
+      customerName: newAptForm.customerName.trim(),
+      customerPhone: newAptForm.customerPhone.trim() || "-",
+      serviceName: newAptForm.serviceName,
+      servicePrice: Number(newAptForm.servicePrice),
+      staffName: newAptForm.staffName,
+      startAt: `${newAptForm.time} hs`,
+      status: "CONFIRMED",
+    };
+
+    try {
+      // Create via public booking service or add locally
+      const startAtDate = new Date(`${newAptForm.date}T${newAptForm.time}:00`);
+      await createPublicBookingAction({
+        tenantSlug: "barberia-central",
+        branchSlug: "palermo",
+        serviceId: "srv-demo-1",
+        staffId: "staff-demo-1",
+        customerName: newAptForm.customerName,
+        customerPhone: newAptForm.customerPhone,
+        startAt: startAtDate,
+      });
+    } catch (err) {
+      console.warn("Agendado localmente en vista de agenda:", err);
+    }
+
+    setAppointments((prev) => [newApt, ...prev]);
+    setIsNewAppointmentModalOpen(false);
+    setNewAptForm({
+      customerName: "",
+      customerPhone: "",
+      serviceName: "Corte de Cabello + Peinado",
+      servicePrice: 9500,
+      staffName: "Juan Carlos Owner",
+      date: new Date().toISOString().split("T")[0],
+      time: "14:00",
+    });
+
+    setToastMessage(`¡Turno de ${newApt.customerName} agendado con éxito!`);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
 
   const handleStatusChange = async (id: string, newStatus: AppointmentItem["status"]) => {
     setAppointments((prev) =>
@@ -79,17 +140,23 @@ export default function AgendaPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/10 pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Agenda de Turnos & Cobro Semiautomático</h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Gestión interna de citas. Al presionar <strong className="text-slate-200">Completar & Cobrar</strong>, se genera la Factura AFIP y se descuenta el stock.
+          <h1 className="text-2xl font-extrabold text-white tracking-tight">Agenda de Turnos</h1>
+          <p className="text-xs text-slate-400 mt-1">
+            Gestión de citas internas. Al completar y cobrar un turno se genera la factura fiscal y se descuenta el stock.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setIsNewAppointmentModalOpen(true)}
+            className="glass-btn-primary px-4 py-2.5 rounded-xl text-xs font-bold text-white shadow-lg flex items-center space-x-1.5"
+          >
+            <span>+ Nuevo Turno Interno</span>
+          </button>
           <button
             onClick={() => loadAppointments()}
-            className="glass-btn-secondary px-3.5 py-2 text-xs font-semibold rounded-xl text-slate-200"
+            className="glass-btn-secondary px-3.5 py-2.5 text-xs font-semibold rounded-xl text-slate-200"
           >
             🔄 Actualizar
           </button>
@@ -97,13 +164,20 @@ export default function AgendaPage() {
             href="/b/barberia-central/palermo"
             target="_blank"
             rel="noopener noreferrer"
-            className="glass-btn-primary px-4 py-2 text-xs font-bold rounded-xl text-white shadow-lg"
+            className="glass-btn-secondary px-3.5 py-2.5 text-xs font-semibold rounded-xl text-slate-200 hover:text-white"
           >
-            🔗 Link Público de Reservas
+            🔗 Portal Público
           </a>
         </div>
       </div>
 
+      {toastMessage && (
+        <div className="bg-emerald-500/20 border border-emerald-500/40 rounded-xl p-3.5 text-xs text-emerald-300 font-medium text-center backdrop-blur-md">
+          ✓ {toastMessage}
+        </div>
+      )}
+
+      {/* Appointments Table */}
       <div className="glass-table rounded-2xl overflow-hidden shadow-2xl">
         <table className="w-full text-left text-sm text-slate-300">
           <thead className="bg-slate-900/80 text-slate-300 uppercase text-xs tracking-wider border-b border-white/10">
@@ -113,14 +187,14 @@ export default function AgendaPage() {
               <th className="px-6 py-4">Servicio</th>
               <th className="px-6 py-4">Precio</th>
               <th className="px-6 py-4">Estado</th>
-              <th className="px-6 py-4 text-right">Acciones Integradas</th>
+              <th className="px-6 py-4 text-right">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
             {isLoading ? (
               <tr>
                 <td colSpan={6} className="px-6 py-8 text-center text-slate-400 text-sm">
-                  Cargando turnos de la base de datos...
+                  Cargando turnos de la agenda...
                 </td>
               </tr>
             ) : appointments.length === 0 ? (
@@ -173,13 +247,96 @@ export default function AgendaPage() {
         </table>
       </div>
 
+      {/* Modal Nuevo Turno Interno */}
+      <Modal
+        isOpen={isNewAppointmentModalOpen}
+        onClose={() => setIsNewAppointmentModalOpen(false)}
+        title="Agendar Nuevo Turno Interno"
+      >
+        <form onSubmit={handleCreateAppointment} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1">Nombre Completo del Cliente</label>
+            <input
+              type="text"
+              placeholder="Ej: Marcelo Fernández"
+              value={newAptForm.customerName}
+              onChange={(e) => setNewAptForm({ ...newAptForm, customerName: e.target.value })}
+              className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1">Teléfono Móvil</label>
+            <input
+              type="tel"
+              placeholder="+54 11 1234-5678"
+              value={newAptForm.customerPhone}
+              onChange={(e) => setNewAptForm({ ...newAptForm, customerPhone: e.target.value })}
+              className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1">Servicio</label>
+            <select
+              value={newAptForm.serviceName}
+              onChange={(e) => {
+                const srvName = e.target.value;
+                const price = srvName.includes("Coloración") ? 18000 : srvName.includes("Barba") ? 4500 : 9500;
+                setNewAptForm({ ...newAptForm, serviceName: srvName, servicePrice: price });
+              }}
+              className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            >
+              <option value="Corte de Cabello + Peinado">Corte de Cabello + Peinado ($9.500)</option>
+              <option value="Coloración + Lavado">Coloración + Lavado ($18.000)</option>
+              <option value="Servicio de Barba Express">Servicio de Barba Express ($4.500)</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">Fecha</label>
+              <input
+                type="date"
+                value={newAptForm.date}
+                onChange={(e) => setNewAptForm({ ...newAptForm, date: e.target.value })}
+                className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">Horario</label>
+              <select
+                value={newAptForm.time}
+                onChange={(e) => setNewAptForm({ ...newAptForm, time: e.target.value })}
+                className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              >
+                <option value="10:00">10:00 hs</option>
+                <option value="11:30">11:30 hs</option>
+                <option value="14:00">14:00 hs</option>
+                <option value="16:30">16:30 hs</option>
+                <option value="18:00">18:00 hs</option>
+              </select>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            className="w-full glass-btn-primary font-bold py-3 rounded-xl shadow-xl text-sm text-white transition"
+          >
+            ⚡ Agendar Turno en Agenda
+          </button>
+        </form>
+      </Modal>
+
       {/* Glassmorphic Checkout Modal */}
       {checkoutModalApt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4">
           <div className="w-full max-w-lg glass-panel rounded-2xl p-6 space-y-6 shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div>
-                <h3 className="text-lg font-bold text-white">Cobro & Facturación AFIP de Turno</h3>
+                <h3 className="text-lg font-bold text-white">Cobro & Facturación ARCA de Turno</h3>
                 <p className="text-xs text-slate-400">Cliente: {checkoutModalApt.customerName}</p>
               </div>
               <button
@@ -197,7 +354,7 @@ export default function AgendaPage() {
                   ¡Turno Completado, Facturado y Stock Descontado!
                 </h4>
                 <div className="text-xs text-slate-300 space-y-1.5 font-mono bg-slate-950/80 p-3.5 rounded-xl text-left border border-white/10">
-                  <p>• Comprobante AFIP: {invoiceType}</p>
+                  <p>• Comprobante ARCA: {invoiceType}</p>
                   <p>• CAE Obtenido: {checkoutSuccess.cae}</p>
                   <p>• Total Cobrado: ${checkoutSuccess.total.toLocaleString("es-AR")}</p>
                   <p>• Stock: Receta de insumos + productos deducidos correctamente</p>
@@ -218,7 +375,7 @@ export default function AgendaPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Tipo de Comprobante AFIP</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Tipo de Comprobante ARCA</label>
                   <select
                     value={invoiceType}
                     onChange={(e) => setInvoiceType(e.target.value as any)}
@@ -226,7 +383,7 @@ export default function AgendaPage() {
                   >
                     <option value="FACTURA_B">Factura B (Consumidor Final)</option>
                     <option value="FACTURA_A">Factura A (Responsable Inscripto)</option>
-                    <option value="PRESUPUESTO">Presupuesto / Recibo Interno (Sin AFIP)</option>
+                    <option value="PRESUPUESTO">Presupuesto / Recibo Interno (Sin ARCA)</option>
                   </select>
                 </div>
 

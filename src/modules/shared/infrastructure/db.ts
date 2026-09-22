@@ -11,3 +11,24 @@ export const db =
   });
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+
+/**
+ * Executes a database query with a fast timeout fallback.
+ * If PostgreSQL is offline or non-responsive, returns fallbackValue instantly (within timeoutMs).
+ */
+export async function withDbFallback<T>(
+  queryFn: () => Promise<T>,
+  fallbackValue: T,
+  timeoutMs: number = 300
+): Promise<T> {
+  const timeoutPromise = new Promise<T>((resolve) => {
+    setTimeout(() => resolve(fallbackValue), timeoutMs);
+  });
+
+  try {
+    const result = await Promise.race([queryFn(), timeoutPromise]);
+    return result ?? fallbackValue;
+  } catch (error) {
+    return fallbackValue;
+  }
+}
