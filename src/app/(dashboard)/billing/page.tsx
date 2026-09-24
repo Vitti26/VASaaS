@@ -86,90 +86,114 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Page Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Facturador Electrónico AFIP</h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Facturador Electrónico ARCA / AFIP</h1>
+          <p className="text-xs text-slate-500 mt-1">
             Emisión de Facturas A/B/C, comprobantes fiscales con CAE y configuración de Puntos de Venta por sucursal.
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2.5">
           <button
             onClick={() => setIsAfipConfigModalOpen(true)}
-            className="glass-btn-secondary px-4 py-2.5 text-xs font-semibold rounded-xl text-slate-200"
+            className="ventura-btn-secondary text-xs"
           >
             ⚙️ Configurar AFIP
           </button>
           <button
             onClick={() => setIsNewInvoiceModalOpen(true)}
-            className="glass-btn-primary px-4 py-2.5 text-xs font-bold rounded-xl text-white shadow-lg"
+            className="ventura-btn-primary text-xs shadow-md"
           >
             + Nueva Factura AFIP
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="glass-card p-5 rounded-2xl">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">CUIT Configurado</span>
-          <p className="text-2xl font-extrabold text-white mt-1">{afipConfig.cuit}</p>
-          <span className="inline-block mt-2.5 px-3 py-1 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 backdrop-blur-md">
-            ● AFIP {afipConfig.env}
-          </span>
+      {/* Ventura Style Stat Widgets Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="ventura-card p-5 space-y-3">
+          <div className="flex justify-between items-start">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">CUIT Configurado</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold ventura-badge-green">● ARCA {afipConfig.env}</span>
+          </div>
+          <p className="text-2xl font-black text-slate-900">{afipConfig.cuit}</p>
+          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+            <div className="bg-[#c6f500] h-1.5 rounded-full" style={{ width: "100%" }}></div>
+          </div>
         </div>
-        <div className="glass-card p-5 rounded-2xl">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Punto de Venta (POS)</span>
-          <p className="text-2xl font-extrabold text-white mt-1">POS #{String(afipConfig.salesPoint).padStart(4, "0")}</p>
-          <span className="inline-block mt-2.5 text-xs text-slate-400 font-medium">Tipo: WSFEv1 Electrónico</span>
+
+        <div className="ventura-card p-5 space-y-3">
+          <div className="flex justify-between items-start">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Punto de Venta (POS)</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold ventura-badge-lime">WSFEv1</span>
+          </div>
+          <p className="text-2xl font-black text-slate-900">POS #{String(afipConfig.salesPoint).padStart(4, "0")}</p>
+          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+            <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: "80%" }}></div>
+          </div>
         </div>
-        <div className="glass-card p-5 rounded-2xl">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Facturación Emitida</span>
-          <p className="text-2xl font-extrabold text-emerald-400 mt-1">
-            ${invoices.reduce((sum, i) => sum + i.total, 0).toLocaleString("es-AR")} ARS
+
+        <div className="ventura-card p-5 space-y-3">
+          <div className="flex justify-between items-start">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Facturación Emitida</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold ventura-badge-green">{invoices.length} Comprobantes</span>
+          </div>
+          <p className="text-2xl font-black text-slate-900">
+            ${invoices.reduce((sum, i) => sum + i.total, 0).toLocaleString("es-AR")}
           </p>
-          <span className="inline-block mt-2.5 text-xs text-slate-400 font-medium">Total {invoices.length} comprobantes</span>
+          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+            <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: "100%" }}></div>
+          </div>
         </div>
       </div>
 
-      <div className="glass-table rounded-2xl overflow-hidden shadow-2xl">
-        <table className="w-full text-left text-sm text-slate-300">
-          <thead className="bg-slate-900/80 text-slate-300 uppercase text-xs tracking-wider border-b border-white/10">
-            <tr>
-              <th className="px-6 py-4">Comprobante</th>
-              <th className="px-6 py-4">Cliente</th>
-              <th className="px-6 py-4">Fecha</th>
-              <th className="px-6 py-4">Subtotal</th>
-              <th className="px-6 py-4">IVA (21%)</th>
-              <th className="px-6 py-4">Total</th>
-              <th className="px-6 py-4">CAE AFIP</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {invoices.map((inv) => (
-              <tr key={inv.id} className="hover:bg-white/5 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="font-bold text-white">{inv.type}</div>
-                  <div className="text-xs font-mono text-slate-400">{inv.number}</div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="font-semibold text-white">{inv.customerName}</div>
-                  <div className="text-xs text-slate-400">{inv.customerDoc}</div>
-                </td>
-                <td className="px-6 py-4">{inv.date}</td>
-                <td className="px-6 py-4">${inv.subtotal.toLocaleString("es-AR")}</td>
-                <td className="px-6 py-4">${inv.taxTotal.toLocaleString("es-AR")}</td>
-                <td className="px-6 py-4 font-bold text-emerald-400">
-                  ${inv.total.toLocaleString("es-AR")}
-                </td>
-                <td className="px-6 py-4">
-                  <span className="inline-flex items-center gap-1 font-mono text-xs px-3 py-1 rounded-full bg-slate-800/80 text-blue-400 border border-white/10 backdrop-blur-md">
-                    CAE: {inv.cae}
-                  </span>
-                </td>
+      {/* Invoices Table Card */}
+      <div className="ventura-card overflow-hidden">
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="text-base font-bold text-slate-900">Historial de Comprobantes Fiscales</h2>
+          <span className="text-xs text-slate-400 font-medium">{invoices.length} registrados</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs text-slate-600">
+            <thead className="bg-[#f8fafc] text-slate-400 uppercase text-[10px] font-bold tracking-wider border-b border-slate-100">
+              <tr>
+                <th className="px-6 py-3.5">Comprobante</th>
+                <th className="px-6 py-3.5">Cliente</th>
+                <th className="px-6 py-3.5">Fecha</th>
+                <th className="px-6 py-3.5">Subtotal</th>
+                <th className="px-6 py-3.5">IVA (21%)</th>
+                <th className="px-6 py-3.5">Total</th>
+                <th className="px-6 py-3.5">CAE AFIP</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {invoices.map((inv) => (
+                <tr key={inv.id} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="font-bold text-slate-900">{inv.type}</div>
+                    <div className="text-[11px] font-mono text-slate-400">{inv.number}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="font-bold text-slate-900">{inv.customerName}</div>
+                    <div className="text-[11px] text-slate-400">{inv.customerDoc}</div>
+                  </td>
+                  <td className="px-6 py-4 text-slate-600">{inv.date}</td>
+                  <td className="px-6 py-4 font-medium text-slate-700">${inv.subtotal.toLocaleString("es-AR")}</td>
+                  <td className="px-6 py-4 text-slate-500">${inv.taxTotal.toLocaleString("es-AR")}</td>
+                  <td className="px-6 py-4 font-black text-slate-900">
+                    ${inv.total.toLocaleString("es-AR")}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-800 border border-slate-200">
+                      CAE: {inv.cae}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Modal Configuración AFIP */}
@@ -178,37 +202,37 @@ export default function BillingPage() {
         onClose={() => setIsAfipConfigModalOpen(false)}
         title="Configuración de Credenciales AFIP (WSFEv1)"
       >
-        <form onSubmit={handleSaveAfipConfig} className="space-y-4">
+        <form onSubmit={handleSaveAfipConfig} className="space-y-4 text-slate-800">
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">CUIT Emisor (11 dígitos)</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1">CUIT Emisor (11 dígitos)</label>
             <input
               type="text"
               placeholder="20351234567"
               value={afipConfig.cuit}
               onChange={(e) => setAfipConfig({ ...afipConfig, cuit: e.target.value })}
-              className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:ring-[#c6f500]"
               required
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Punto de Venta (POS #)</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Punto de Venta (POS #)</label>
               <input
                 type="number"
                 min="1"
                 value={afipConfig.salesPoint}
                 onChange={(e) => setAfipConfig({ ...afipConfig, salesPoint: Number(e.target.value) })}
-                className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:ring-[#c6f500]"
                 required
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Entorno AFIP</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Entorno AFIP</label>
               <select
                 value={afipConfig.env}
                 onChange={(e) => setAfipConfig({ ...afipConfig, env: e.target.value })}
-                className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:ring-[#c6f500]"
               >
                 <option value="HOMOLOGATION">Homologación (Sandbox PRUEBA)</option>
                 <option value="PRODUCTION">Producción (Real AFIP)</option>
@@ -217,30 +241,30 @@ export default function BillingPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">Certificado Digital (.crt / PEM)</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Certificado Digital (.crt / PEM)</label>
             <textarea
               rows={3}
               value={afipConfig.certPem}
               onChange={(e) => setAfipConfig({ ...afipConfig, certPem: e.target.value })}
-              className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white font-mono"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 font-mono"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">Clave Privada (.key / PEM)</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Clave Privada (.key / PEM)</label>
             <textarea
               rows={3}
               value={afipConfig.keyPem}
               onChange={(e) => setAfipConfig({ ...afipConfig, keyPem: e.target.value })}
-              className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white font-mono"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 font-mono"
               required
             />
           </div>
 
           <button
             type="submit"
-            className="w-full glass-btn-primary font-bold py-3 rounded-xl text-sm shadow-xl text-white"
+            className="w-full ventura-btn-primary font-bold py-3 rounded-xl text-xs shadow-md"
           >
             Guardar Credenciales AFIP en PostgreSQL
           </button>
@@ -253,14 +277,14 @@ export default function BillingPage() {
         onClose={() => setIsNewInvoiceModalOpen(false)}
         title="Emitir Comprobante AFIP Directo"
       >
-        <form onSubmit={handleCreateInvoice} className="space-y-4">
+        <form onSubmit={handleCreateInvoice} className="space-y-4 text-slate-800">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Tipo Comprobante</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Tipo Comprobante</label>
               <select
                 value={newInvoiceForm.type}
                 onChange={(e) => setNewInvoiceForm({ ...newInvoiceForm, type: e.target.value })}
-                className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:ring-[#c6f500]"
               >
                 <option value="FACTURA_B">Factura B (Consumidor Final)</option>
                 <option value="FACTURA_A">Factura A (Resp. Inscripto)</option>
@@ -268,57 +292,57 @@ export default function BillingPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">DNI / CUIT Cliente</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">DNI / CUIT Cliente</label>
               <input
                 type="text"
                 value={newInvoiceForm.customerDoc}
                 onChange={(e) => setNewInvoiceForm({ ...newInvoiceForm, customerDoc: e.target.value })}
-                className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:ring-[#c6f500]"
                 required
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">Nombre / Razón Social Cliente</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Nombre / Razón Social Cliente</label>
             <input
               type="text"
               value={newInvoiceForm.customerName}
               onChange={(e) => setNewInvoiceForm({ ...newInvoiceForm, customerName: e.target.value })}
-              className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:ring-[#c6f500]"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">Concepto / Descripción Ítem</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Concepto / Descripción Ítem</label>
             <input
               type="text"
               value={newInvoiceForm.description}
               onChange={(e) => setNewInvoiceForm({ ...newInvoiceForm, description: e.target.value })}
-              className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:ring-[#c6f500]"
               required
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Subtotal Neto ($)</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Subtotal Neto ($)</label>
               <input
                 type="number"
                 min="0"
                 value={newInvoiceForm.subtotal}
                 onChange={(e) => setNewInvoiceForm({ ...newInvoiceForm, subtotal: Number(e.target.value) })}
-                className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:ring-[#c6f500]"
                 required
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Alícuota IVA</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Alícuota IVA</label>
               <select
                 value={newInvoiceForm.vatRate}
                 onChange={(e) => setNewInvoiceForm({ ...newInvoiceForm, vatRate: Number(e.target.value) })}
-                className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:ring-[#c6f500]"
               >
                 <option value={21.0}>21.0 %</option>
                 <option value={10.5}>10.5 %</option>
@@ -329,7 +353,7 @@ export default function BillingPage() {
 
           <button
             type="submit"
-            className="w-full glass-btn-primary font-bold py-3 rounded-xl text-sm shadow-xl text-white"
+            className="w-full ventura-btn-primary font-bold py-3 rounded-xl text-xs shadow-md"
           >
             ⚡ Solicitar CAE AFIP & Emitir Comprobante
           </button>

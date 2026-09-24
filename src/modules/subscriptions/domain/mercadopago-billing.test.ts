@@ -7,7 +7,8 @@ import {
   calculateDepositExpiration,
   verifyMercadoPagoWebhookSignature,
 } from "./subscription-policy";
-import { clearProcessedWebhookEvents, POST } from "@/app/api/webhooks/mercadopago/route";
+import { clearProcessedWebhookEvents } from "@/modules/subscriptions/infrastructure/mercadopago-webhook";
+import { POST } from "@/app/api/webhooks/mercadopago/route";
 
 describe("Fase 12: Mercado Pago Subscriptions & Soft-Lock Test Suite", () => {
   const secretKey = "test-secret-key-123456";

@@ -87,3 +87,8 @@ export async function getCurrentSessionAction() {
     return null;
   }
 }
+
+export async function getPublicTenantInfoAction(tenantSlug: string) {
+  if (!tenantSlug) return null;
+  return prismaOnboardingRepository.getTenantDetailsBySlug(tenantSlug);
+}

@@ -11,6 +11,15 @@ export const prismaOnboardingRepository: OnboardingRepository = {
     return !!tenant;
   },
 
+  async getTenantDetailsBySlug(slug: string) {
+    const tenant = await db.tenant.findUnique({
+      where: { slug },
+      select: { id: true, name: true, slug: true },
+    });
+    if (!tenant) return null;
+    return tenant;
+  },
+
   async findUserByEmail(email: string) {
     const user = await db.user.findFirst({
       where: { email },

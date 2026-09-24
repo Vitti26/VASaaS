@@ -52,11 +52,7 @@ export async function getAppointmentsAction(tenantId?: string, branchId?: string
       orderBy: { startAt: "asc" },
     });
 
-    if (appointments.length === 0) {
-      return fallbackAppointmentsStore;
-    }
-
-    return appointments.map((apt) => ({
+    const dbMapped = appointments.map((apt) => ({
       id: apt.id,
       customerName: apt.customer.name,
       customerPhone: apt.customer.phone || "-",
@@ -66,28 +62,56 @@ export async function getAppointmentsAction(tenantId?: string, branchId?: string
       startAt: apt.startAt.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) + " hs",
       status: apt.status,
     }));
+
+    const combined = [...fallbackAppointmentsStore];
+    for (const item of dbMapped) {
+      if (!combined.some((a) => a.id === item.id)) {
+        combined.push(item);
+      }
+    }
+    return combined;
   }, fallbackAppointmentsStore);
 }
 
 export async function getPublicBranchDataAction(tenantSlug: string, branchSlug: string) {
   const fallbackDemoData = {
-    tenant: { id: "tenant-demo-1", name: "Barbería & Estética Central", slug: "barberia-central" },
-    branch: { id: "branch-demo-1", name: "Sucursal Palermo" },
+    tenant: {
+      id: "tenant-demo-1",
+      name: "Gráfica & Imprenta PubliDesign",
+      slug: "barberia-demo",
+      requireDeposit: true,
+      depositAmount: 5000,
+      cuentaDniAlias: "grafica.publidesign.mp",
+      cuentaDniCbu: "0000003100012345678901",
+      cuentaDniTitular: "PubliDesign Gráfica S.R.L.",
+      mpPublicKey: "APP_USR-demo-public-key",
+    },
+    branch: { id: "branch-demo-1", name: "Taller Central & Imprenta" },
     services: [
-      { id: "srv-demo-1", name: "Corte de Cabello + Peinado", price: 9500, durationMinutes: 45 },
-      { id: "srv-demo-2", name: "Coloración + Lavado", price: 18000, durationMinutes: 90 },
-      { id: "srv-demo-3", name: "Servicio de Barba Express", price: 4500, durationMinutes: 20 },
+      { id: "srv-demo-1", name: "Impresión Gigantografía Canvas 140x100cm", price: 18500, durationMinutes: 60 },
+      { id: "srv-demo-2", name: "Tarjetas de Presentación 9x5cm x 1000u", price: 14000, durationMinutes: 45 },
+      { id: "srv-demo-3", name: "Folletería A4 Full Color x 500u", price: 22000, durationMinutes: 90 },
     ],
     staff: [
-      { id: "staff-demo-1", name: "Juan Carlos Owner" },
-      { id: "staff-demo-2", name: "María Barbera" },
+      { id: "staff-demo-1", name: "Gonzalo Dev & Diseños" },
+      { id: "staff-demo-2", name: "Martín Impresor" },
     ],
   };
 
   return withDbFallback(async () => {
     const tenant = await db.tenant.findUnique({
       where: { slug: tenantSlug },
-      select: { id: true, name: true, slug: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        requireDeposit: true,
+        depositAmount: true,
+        cuentaDniAlias: true,
+        cuentaDniCbu: true,
+        cuentaDniTitular: true,
+        mpPublicKey: true,
+      },
     });
     if (tenant) {
       let branch = await db.branch.findFirst({
@@ -118,7 +142,10 @@ export async function getPublicBranchDataAction(tenantSlug: string, branchSlug: 
 
         if (services.length > 0 && staff.length > 0) {
           return {
-            tenant,
+            tenant: {
+              ...tenant,
+              depositAmount: tenant.depositAmount ? Number(tenant.depositAmount) : 2000,
+            },
             branch,
             services: services.map((s) => ({ ...s, price: Number(s.price) })),
             staff,
@@ -170,38 +197,40 @@ export async function createPublicBookingAction(input: PublicBookingInput, clien
     throw new Error("El número de teléfono ya posee 3 reservas activas. No se pueden agendar más turnos simultáneos.");
   }
 
+  const serviceNames: Record<string, { name: string; price: number }> = {
+    "srv-demo-1": { name: "Corte de Cabello + Peinado", price: 9500 },
+    "srv-demo-2": { name: "Coloración + Lavado", price: 18000 },
+    "srv-demo-3": { name: "Servicio de Barba Express", price: 4500 },
+  };
+  const srv = serviceNames[validated.serviceId] || { name: "Corte de Cabello + Peinado", price: 9500 };
+
+  const formattedStartAt = validated.startAt.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) + " hs";
+
+  const newFallbackApt = {
+    id: "TURNO-" + Math.floor(1000 + Math.random() * 9000),
+    customerName: validated.customerName,
+    customerPhone: validated.customerPhone,
+    serviceName: srv.name,
+    servicePrice: srv.price,
+    staffName: "Juan Carlos Owner",
+    startAt: formattedStartAt,
+    status: "CONFIRMED" as const,
+  };
+
+  // Always update in-memory store so polling picks it up instantly
+  fallbackAppointmentsStore.unshift(newFallbackApt);
+
   try {
     const result = await createPublicBookingService(validated, prismaAppointmentRepository);
     revalidatePath("/agenda");
     return { success: true, appointment: result };
   } catch (error: any) {
     console.warn("DB booking error or offline, fallback to local store:", error?.message);
-
-    const serviceNames: Record<string, { name: string; price: number }> = {
-      "srv-demo-1": { name: "Corte de Cabello + Peinado", price: 9500 },
-      "srv-demo-2": { name: "Coloración + Lavado", price: 18000 },
-      "srv-demo-3": { name: "Servicio de Barba Express", price: 4500 },
-    };
-    const srv = serviceNames[validated.serviceId] || { name: "Servicio de Peluquería", price: 9500 };
-
-    const newApt = {
-      id: "TURNO-" + Math.floor(1000 + Math.random() * 9000),
-      customerName: validated.customerName,
-      customerPhone: validated.customerPhone,
-      serviceName: srv.name,
-      servicePrice: srv.price,
-      staffName: "Juan Carlos Owner",
-      startAt: validated.startAt.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) + " hs",
-      status: "CONFIRMED" as const,
-    };
-
-    fallbackAppointmentsStore.unshift(newApt);
     revalidatePath("/agenda");
-
     return {
       success: true,
       appointment: {
-        id: newApt.id,
+        id: newFallbackApt.id,
         status: "CONFIRMED",
         startAt: validated.startAt,
         endAt: new Date(validated.startAt.getTime() + 45 * 60 * 1000),

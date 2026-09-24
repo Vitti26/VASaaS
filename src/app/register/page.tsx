@@ -17,10 +17,10 @@ export default function RegisterPage() {
     password: "",
     tenantName: "",
     tenantSlug: "",
-    branchName: "Sucursal Central",
+    branchName: "Sucursal Central / Taller",
     branchAddress: "",
-    serviceName: "Corte de Cabello + Peinado",
-    servicePrice: 9500,
+    serviceName: "Impresión / Servicio Principal",
+    servicePrice: 15000,
   });
 
   const handleNextStep = (e: React.FormEvent) => {
@@ -132,7 +132,7 @@ export default function RegisterPage() {
               <label className="block text-xs font-medium text-slate-300 mb-1">Correo Electrónico de Acceso</label>
               <input
                 type="email"
-                placeholder="carlos@barberia.com"
+                placeholder="contacto@miempresa.com"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
@@ -165,10 +165,10 @@ export default function RegisterPage() {
         {step === 2 && (
           <form onSubmit={handleNextStep} className="space-y-4 text-sm">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Nombre Comercial del Negocio</label>
+              <label className="block text-xs font-medium text-slate-300 mb-1">Nombre Comercial del Negocio / Empresa</label>
               <input
                 type="text"
-                placeholder="Ej: Barbería & Estética Central"
+                placeholder="Ej: Gráfica & Imprenta PubliDesign"
                 value={formData.tenantName}
                 onChange={(e) => handleTenantNameChange(e.target.value)}
                 className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
@@ -182,7 +182,7 @@ export default function RegisterPage() {
                 <span className="text-slate-500 font-mono text-xs select-none">vasaas.com/b/</span>
                 <input
                   type="text"
-                  placeholder="barberia-central"
+                  placeholder="grafica-publidesign"
                   value={formData.tenantSlug}
                   onChange={(e) => setFormData({ ...formData, tenantSlug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })}
                   className="w-full bg-transparent text-white font-mono text-xs focus:outline-none ml-1"

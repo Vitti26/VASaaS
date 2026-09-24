@@ -3,84 +3,184 @@
 @tailwind utilities;
 
 :root {
-  --background: #090d16;
-  --foreground: #f8fafc;
+  --background: #f4f5f8;
+  --foreground: #0f172a;
+  --sidebar-bg: #111216;
+  --sidebar-item-active: #22242b;
+  --accent-lime: #c6f500;
+  --accent-lime-hover: #b5e200;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.12) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
-  background-attachment: fixed;
 }
 
-/* Glassmorphism Utilities */
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* Ventura Theme Utility Classes */
+.ventura-sidebar {
+  background: var(--sidebar-bg);
+  color: #94a3b8;
+}
+
+.ventura-sidebar-item {
+  display: flex;
+  items-center: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #94a3b8;
+  transition: all 0.15s ease-in-out;
+}
+
+.ventura-sidebar-item:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ventura-sidebar-item-active {
+  color: #ffffff;
+  background: var(--sidebar-item-active) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.ventura-card {
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 1.25rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.02), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ventura-card:hover {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+}
+
+.ventura-btn-primary {
+  background: var(--accent-lime);
+  color: #0f172a;
+  font-weight: 700;
+  padding: 0.625rem 1.125rem;
+  border-radius: 0.875rem;
+  box-shadow: 0 4px 14px rgba(198, 245, 0, 0.35);
+  transition: all 0.15s ease-in-out;
+}
+
+.ventura-btn-primary:hover {
+  background: var(--accent-lime-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(198, 245, 0, 0.45);
+}
+
+.ventura-btn-secondary {
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  font-weight: 600;
+  padding: 0.625rem 1rem;
+  border-radius: 0.875rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.15s ease-in-out;
+}
+
+.ventura-btn-secondary:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.ventura-btn-dark {
+  background: #111216;
+  color: #ffffff;
+  font-weight: 600;
+  padding: 0.625rem 1.125rem;
+  border-radius: 0.875rem;
+  box-shadow: 0 4px 12px rgba(17, 18, 22, 0.2);
+  transition: all 0.15s ease-in-out;
+}
+
+.ventura-btn-dark:hover {
+  background: #1e2028;
+  transform: translateY(-1px);
+}
+
+.ventura-badge-green {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+  font-weight: 700;
+}
+
+.ventura-badge-red {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  font-weight: 700;
+}
+
+.ventura-badge-lime {
+  background: rgba(198, 245, 0, 0.15);
+  color: #4d6100;
+  border: 1px solid rgba(198, 245, 0, 0.4);
+  font-weight: 700;
+}
+
+/* Glassmorphism Backward-Compatible Support */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
+  border-radius: 1.25rem;
 }
 
 .glass-nav {
-  background: rgba(9, 13, 22, 0.8);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .glass-card {
-  background: rgba(15, 23, 42, 0.55);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.glass-card:hover {
-  border-color: rgba(255, 255, 255, 0.18);
-  transform: translateY(-2px);
-  box-shadow: 0 15px 35px -10px rgba(37, 99, 235, 0.15);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  border-radius: 1.25rem;
 }
 
 .glass-btn-primary {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.9), rgba(29, 78, 216, 0.9));
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.35);
-  transition: all 0.2s ease;
-}
-
-.glass-btn-primary:hover {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.95), rgba(37, 99, 235, 0.95));
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
-  transform: translateY(-1px);
+  background: var(--accent-lime);
+  color: #0f172a;
+  border: none;
+  font-weight: 700;
+  border-radius: 0.875rem;
+  box-shadow: 0 4px 14px rgba(198, 245, 0, 0.35);
 }
 
 .glass-btn-secondary {
-  background: rgba(30, 41, 59, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease;
-}
-
-.glass-btn-secondary:hover {
-  background: rgba(51, 65, 85, 0.8);
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-1px);
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.875rem;
 }
 
 .glass-table {
-  background: rgba(15, 23, 42, 0.5);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1.25rem;
 }

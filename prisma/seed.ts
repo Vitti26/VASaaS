@@ -25,20 +25,25 @@ async function main() {
 
   const passwordHash = await bcrypt.hash("password123", 10);
 
-  // 2. Tenant 1: Barbería & Estética Central (Plan PRO)
+  // 2. Tenant 1: Gráfica & Imprenta PubliDesign (Plan PRO)
   const tenant1 = await prisma.tenant.create({
     data: {
-      name: "Barbería & Estética Central",
-      slug: "barberia-central",
+      name: "Gráfica & Imprenta PubliDesign",
+      slug: "barberia-demo", // slug de demostración principal
       plan: "PRO",
+      cuentaDniAlias: "grafica.publidesign.mp",
+      cuentaDniCbu: "0000003100012345678901",
+      cuentaDniTitular: "PubliDesign Gráfica S.R.L.",
+      requireDeposit: true,
+      depositAmount: 5000,
     },
   });
 
   const branch1 = await prisma.branch.create({
     data: {
       tenantId: tenant1.id,
-      name: "Sucursal Palermo",
-      address: "Av. Santa Fe 3200",
+      name: "Taller Central & Imprenta",
+      address: "Av. Corrientes 1450",
       city: "Buenos Aires",
       phone: "+54 11 4444-5555",
     },
@@ -47,7 +52,7 @@ async function main() {
   const branch2 = await prisma.branch.create({
     data: {
       tenantId: tenant1.id,
-      name: "Sucursal Belgrano",
+      name: "Sucursal Showroom Belgrano",
       address: "Av. Cabildo 2100",
       city: "Buenos Aires",
       phone: "+54 11 4444-6666",
@@ -57,8 +62,8 @@ async function main() {
   const owner1 = await prisma.user.create({
     data: {
       tenantId: tenant1.id,
-      name: "Juan Carlos Owner",
-      email: "owner@barberia.com",
+      name: "Gonzalo Dev & Diseños",
+      email: "owner@grafica.com",
       passwordHash,
       role: "OWNER",
       userBranches: {
@@ -70,8 +75,8 @@ async function main() {
   const staff1 = await prisma.user.create({
     data: {
       tenantId: tenant1.id,
-      name: "María Barbera",
-      email: "maria@barberia.com",
+      name: "Martín Impresor",
+      email: "martin@grafica.com",
       passwordHash,
       role: "STAFF",
       userBranches: {
@@ -84,112 +89,122 @@ async function main() {
   const customer1 = await prisma.customer.create({
     data: {
       tenantId: tenant1.id,
-      name: "Carlos Gómez",
-      email: "carlos@email.com",
+      name: "Estudio Jurídico López & Asoc.",
+      email: "contacto@lopezjuridico.com",
       phone: "+54 11 9999-8888",
-      docType: "DNI",
-      docNumber: "35123456",
-      taxCategory: "CONSUMIDOR_FINAL",
-    },
-  });
-
-  const customer2 = await prisma.customer.create({
-    data: {
-      tenantId: tenant1.id,
-      name: "Empresa Ejemplo S.A.",
-      email: "compras@ejemplo.com",
-      phone: "+54 11 4444-1111",
       docType: "CUIT",
       docNumber: "30711234568",
       taxCategory: "RESPONSABLE_INSCRIPTO",
     },
   });
 
-  // Products & Stock
-  const productReventa = await prisma.product.create({
+  const customer2 = await prisma.customer.create({
     data: {
       tenantId: tenant1.id,
-      name: "Champú Profesional 1L",
-      sku: "CHA-1000",
-      unit: "UNIT",
-      price: 4500,
-      cost: 2200,
-      minStockAlert: 5,
-      isServiceInput: false,
+      name: "Resto-Bar El Almacén",
+      email: "bar@elalmacen.com",
+      phone: "+54 11 4444-1111",
+      docType: "CUIT",
+      docNumber: "30709876543",
+      taxCategory: "MONOTRIBUTO",
     },
   });
 
-  const productInsumo = await prisma.product.create({
+  // Products & Stock (Insumos Gráficos)
+  const productPapel = await prisma.product.create({
     data: {
       tenantId: tenant1.id,
-      name: "Tintura Rubio Claro 60ml",
-      sku: "TIN-800",
+      name: "Resma Papel Ilustración 300g (500 hojas)",
+      sku: "PAP-300G",
       unit: "UNIT",
-      price: 2800,
-      cost: 1200,
+      price: 32000,
+      cost: 18000,
       minStockAlert: 5,
       isServiceInput: true,
     },
   });
 
-  const productStockBajo = await prisma.product.create({
+  const productVinilo = await prisma.product.create({
     data: {
       tenantId: tenant1.id,
-      name: "Aceite de Barba 50ml",
-      sku: "ACE-050",
+      name: "Bobina Vinilo Autoadhesivo Mate 1.5m",
+      sku: "VIN-MATE15",
       unit: "UNIT",
-      price: 3500,
-      cost: 1500,
-      minStockAlert: 5,
-      isServiceInput: false,
+      price: 45000,
+      cost: 25000,
+      minStockAlert: 3,
+      isServiceInput: true,
+    },
+  });
+
+  const productTinta = await prisma.product.create({
+    data: {
+      tenantId: tenant1.id,
+      name: "Tinta Ecosolvente Negra 1L",
+      sku: "TIN-NEGRA1L",
+      unit: "LITER",
+      price: 28000,
+      cost: 15000,
+      minStockAlert: 2,
+      isServiceInput: true,
     },
   });
 
   // Branch Stock setup
   await prisma.branchStock.createMany({
     data: [
-      { tenantId: tenant1.id, branchId: branch1.id, productId: productReventa.id, quantity: 12 },
-      { tenantId: tenant1.id, branchId: branch1.id, productId: productInsumo.id, quantity: 8 },
-      { tenantId: tenant1.id, branchId: branch1.id, productId: productStockBajo.id, quantity: 2 }, // Low stock!
+      { tenantId: tenant1.id, branchId: branch1.id, productId: productPapel.id, quantity: 15 },
+      { tenantId: tenant1.id, branchId: branch1.id, productId: productVinilo.id, quantity: 8 },
+      { tenantId: tenant1.id, branchId: branch1.id, productId: productTinta.id, quantity: 1 }, // Stock bajo!
     ],
   });
 
-  // Services & Recipes
-  const serviceCorte = await prisma.service.create({
+  // Services & Recipes (Servicios Gráficos)
+  const serviceCanvas = await prisma.service.create({
     data: {
       tenantId: tenant1.id,
-      name: "Corte de Cabello + Peinado",
-      description: "Servicio estándar de peluquería masculina/femenina",
-      durationMinutes: 45,
-      price: 9500,
+      name: "Impresión Gigantografía Canvas 140x100cm",
+      description: "Impresión de alta calidad en cuadro Canvas montado sobre bastidor de madera",
+      durationMinutes: 60,
+      price: 18500,
     },
   });
 
-  const serviceColor = await prisma.service.create({
+  const serviceTarjetas = await prisma.service.create({
     data: {
       tenantId: tenant1.id,
-      name: "Coloración + Lavado",
-      description: "Servicio técnico con consumo de tintura en receta",
-      durationMinutes: 90,
-      price: 18000,
+      name: "Tarjetas de Presentación 9x5cm x 1000u",
+      description: "Tarjetas personales impresas frente y dorso en ilustración 300g con laminado mate",
+      durationMinutes: 45,
+      price: 14000,
       recipes: {
         create: [
           {
-            productId: productInsumo.id,
-            quantityUsed: 1, // 1 tubo de tintura
+            productId: productPapel.id,
+            quantityUsed: 1, // 1 resma usada
           },
         ],
       },
     },
   });
 
-  // Appointments
+  const serviceFolletos = await prisma.service.create({
+    data: {
+      tenantId: tenant1.id,
+      name: "Folletería A4 Full Color x 500u",
+      description: "Folletos de promoción A4 impresión bifaz full color",
+      durationMinutes: 90,
+      price: 22000,
+    },
+  });
+
+  // Appointments / Solicitudes de Pedido
   const now = new Date();
   const startApt1 = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0);
-  const endApt1 = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 45);
+  const endApt1 = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 11, 0);
 
-  const startApt2 = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 11, 30);
-  const endApt2 = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 13, 0);
+  const startApt2 = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 14, 0);
+  const endApt2 = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 15, 30);
 
   await prisma.appointment.create({
     data: {
@@ -197,7 +212,7 @@ async function main() {
       branchId: branch1.id,
       staffId: staff1.id,
       customerId: customer1.id,
-      serviceId: serviceCorte.id,
+      serviceId: serviceTarjetas.id,
       startAt: startApt1,
       endAt: endApt1,
       status: "CONFIRMED",
@@ -210,7 +225,7 @@ async function main() {
       branchId: branch1.id,
       staffId: staff1.id,
       customerId: customer2.id,
-      serviceId: serviceColor.id,
+      serviceId: serviceFolletos.id,
       startAt: startApt2,
       endAt: endApt2,
       status: "PENDING",
@@ -221,7 +236,7 @@ async function main() {
   await prisma.afipConfig.create({
     data: {
       tenantId: tenant1.id,
-      cuit: "20351234567",
+      cuit: "30711234568",
       certPem: "-----BEGIN CERTIFICATE-----\nMockCertPem\n-----END CERTIFICATE-----",
       keyPem: "-----BEGIN RSA PRIVATE KEY-----\nMockKeyPem\n-----END RSA PRIVATE KEY-----",
       salesPoint: 1,
@@ -234,11 +249,11 @@ async function main() {
     data: {
       tenantId: tenant1.id,
       status: "TRIALING",
-      trialEndsAt: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000), // 12 days left
+      trialEndsAt: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000), // 12 días de prueba restantes
     },
   });
 
-  console.log("✅ Datos de prueba cargados correctamente en PostgreSQL.");
+  console.log("✅ Datos de prueba de Gráfica & Imprenta cargados correctamente en PostgreSQL.");
 }
 
 main()

@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum PlanType {
@@ -84,6 +85,15 @@ model Tenant {
   plan      PlanType @default(STARTER)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Pasarelas de cobro propias del Tenant (Barbería)
+  mpAccessToken    String?  @map("mp_access_token")
+  mpPublicKey      String?  @map("mp_public_key")
+  cuentaDniAlias   String?  @map("cuenta_dni_alias")
+  cuentaDniCbu     String?  @map("cuenta_dni_cbu")
+  cuentaDniTitular String?  @map("cuenta_dni_titular")
+  requireDeposit   Boolean  @default(false) @map("require_deposit")
+  depositAmount    Decimal? @db.Decimal(12, 2) @map("deposit_amount")
 
   branches       Branch[]
   users          User[]

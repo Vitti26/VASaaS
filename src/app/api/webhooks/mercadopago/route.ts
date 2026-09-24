@@ -3,6 +3,7 @@ import { z } from "zod";
 import { processMercadoPagoWebhook } from "@/modules/subscriptions/domain/subscription-service";
 import { verifyMercadoPagoWebhookSignature } from "@/modules/subscriptions/domain/subscription-policy";
 import { db } from "@/modules/shared/infrastructure/db";
+import { processedWebhookEvents } from "@/modules/subscriptions/infrastructure/mercadopago-webhook";
 
 const MercadoPagoWebhookBodySchema = z.object({
   action: z.string(),
@@ -14,11 +15,6 @@ const MercadoPagoWebhookBodySchema = z.object({
   plan: z.enum(["STARTER", "PRO"]),
 });
 
-const processedWebhookEvents = new Set<string>();
-
-export function clearProcessedWebhookEvents(): void {
-  processedWebhookEvents.clear();
-}
 
 export async function POST(req: Request) {
   try {

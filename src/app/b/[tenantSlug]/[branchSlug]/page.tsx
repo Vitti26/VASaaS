@@ -12,9 +12,23 @@ export default function PublicBookingPage({
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  
+
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"MP" | "CUENTA_DNI" | null>(null);
+  const [depositNotified, setDepositNotified] = useState(false);
+
   const [branchData, setBranchData] = useState<{
-    tenant: { id: string; name: string; slug: string };
+    tenant: {
+      id: string;
+      name: string;
+      slug: string;
+      requireDeposit?: boolean;
+      depositAmount?: number;
+      cuentaDniAlias?: string | null;
+      cuentaDniCbu?: string | null;
+      cuentaDniTitular?: string | null;
+      mpPublicKey?: string | null;
+    };
     branch: { id: string; name: string };
     services: Array<{ id: string; name: string; price: number; durationMinutes: number }>;
     staff: Array<{ id: string; name: string }>;
@@ -67,14 +81,30 @@ export default function PublicBookingPage({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
     setErrorMessage(null);
 
-    try {
-      if (!formData.serviceId || !formData.staffId) {
-        throw new Error("Por favor seleccione un servicio y un profesional.");
-      }
+    if (!formData.serviceId || !formData.staffId) {
+      setErrorMessage("Por favor seleccione un servicio y un profesional.");
+      return;
+    }
 
+    if (!formData.name || !formData.phone) {
+      setErrorMessage("Por favor ingrese su nombre y teléfono.");
+      return;
+    }
+
+    // Check if deposit is required
+    if (branchData?.tenant?.requireDeposit && !selectedPaymentMethod) {
+      setShowDepositModal(true);
+      return;
+    }
+
+    await processBooking();
+  };
+
+  const processBooking = async () => {
+    setIsSubmitting(true);
+    try {
       const startAtDate = new Date(`${formData.date}T${formData.time}:00`);
 
       const res = await createPublicBookingAction({
@@ -101,6 +131,7 @@ export default function PublicBookingPage({
           date: formData.date,
         });
         setSubmitted(true);
+        setShowDepositModal(false);
       }
     } catch (err: any) {
       setErrorMessage(err.message || "Error al procesar la reserva. Intente nuevamente.");
@@ -115,67 +146,97 @@ export default function PublicBookingPage({
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(37,99,235,0.15),rgba(255,255,255,0))] pointer-events-none" />
 
       <div className="w-full max-w-lg glass-panel rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl relative z-10">
-        {/* Brand Header */}
-        <div className="text-center space-y-3">
-          <Link href="/" className="inline-flex items-center space-x-2.5 group mb-1">
-            <span className="bg-gradient-to-tr from-blue-600 via-indigo-500 to-emerald-400 text-white p-2 rounded-xl font-black text-xs tracking-wider shadow-lg shadow-blue-500/25">
-              VA
-            </span>
-            <span className="font-extrabold text-lg text-white tracking-tight">
+        {/* Top Header Bar with Staff Access Link */}
+        <div className="flex items-center justify-between pb-2 border-b border-white/5">
+          <Link href="/" className="inline-flex items-center space-x-2 group">
+            <div className="w-12 h-12 rounded-xl bg-slate-900 border border-white/10 p-0.5 flex items-center justify-center shadow-lg overflow-hidden">
+              <img src="/assets/vaIcon.svg" alt="VASaaS Logo" className="w-full h-full object-contain scale-130" />
+            </div>
+            <span className="font-extrabold text-sm text-white tracking-tight">
               VASaaS
             </span>
           </Link>
+
+          <Link
+            href={`/b/${params.tenantSlug}/login`}
+            className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-white/10 text-[11px] font-semibold transition"
+          >
+            <span>Acceso Staff</span>
+          </Link>
+        </div>
+
+        {/* Brand Header */}
+        <div className="text-center space-y-3">
           <div>
             <span className="inline-block px-3 py-1 bg-blue-500/10 text-blue-400 text-xs font-semibold rounded-full border border-blue-500/20 backdrop-blur-md">
               Reserva de Turnos Online
             </span>
           </div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight capitalize">
-            {branchData?.tenant.name || params.tenantSlug.replace("-", " ")} - {branchData?.branch.name || params.branchSlug.replace("-", " ")}
+
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+            {branchData?.tenant.name || "Barbería & Estética"}
           </h1>
-          <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            Completá tus datos para agendar tu turno al instante sin necesidad de crear usuario.
+          <p className="text-xs text-slate-400">
+            Sucursal: <span className="text-slate-200 font-semibold">{branchData?.branch.name || "Principal"}</span>
           </p>
         </div>
 
+        {/* Feedback Messages */}
         {errorMessage && (
-          <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-3.5 text-xs text-rose-300 text-center font-medium">
-            ⚠️ {errorMessage}
+          <div className="bg-rose-500/10 border border-rose-500/20 text-rose-300 p-3.5 rounded-2xl text-xs font-semibold">
+            {errorMessage}
           </div>
         )}
 
         {submitted && bookingResult ? (
-          <div className="glass-card rounded-2xl p-6 text-center space-y-4 border-emerald-500/30">
-            <div className="text-4xl">🎉</div>
-            <h3 className="text-xl font-bold text-emerald-400">
-              ¡Turno Confirmado y Guardado!
-            </h3>
-            <p className="text-xs text-slate-300">
-              Tu reserva fue registrada en el sistema de la sucursal.
-            </p>
+          <div className="space-y-6 text-center py-4">
+            <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto text-2xl font-black">
+              ✓
+            </div>
 
-            <div className="text-xs text-slate-300 space-y-2 font-mono bg-slate-950/80 p-4 rounded-xl text-left border border-white/10">
-              <p className="text-slate-400 font-semibold text-[11px] uppercase tracking-wider mb-2">Comprobante de Reserva:</p>
-              <p><strong className="text-white">Código:</strong> #{bookingResult.id}</p>
-              <p><strong className="text-white">Cliente:</strong> {bookingResult.customerName}</p>
-              <p><strong className="text-white">Servicio:</strong> {bookingResult.serviceName}</p>
-              <p><strong className="text-white">Fecha:</strong> {bookingResult.date}</p>
-              <p><strong className="text-white">Horario:</strong> {bookingResult.startAt}</p>
+            <div className="space-y-2">
+              <h2 className="text-xl font-black text-white">¡Reserva Confirmada!</h2>
+              <p className="text-xs text-slate-400">
+                Tu turno fue registrado exitosamente en el sistema de la barbería.
+              </p>
+            </div>
+
+            <div className="bg-slate-900/80 border border-white/10 rounded-2xl p-4 text-left space-y-2.5 text-xs">
+              <div className="flex justify-between border-b border-white/5 pb-2">
+                <span className="text-slate-400 font-medium">Código de Reserva:</span>
+                <span className="font-mono font-bold text-blue-400">#{bookingResult.id}</span>
+              </div>
+              <div className="flex justify-between border-b border-white/5 pb-2">
+                <span className="text-slate-400 font-medium">Cliente:</span>
+                <span className="font-bold text-white">{bookingResult.customerName}</span>
+              </div>
+              <div className="flex justify-between border-b border-white/5 pb-2">
+                <span className="text-slate-400 font-medium">Servicio:</span>
+                <span className="font-bold text-white">{bookingResult.serviceName}</span>
+              </div>
+              <div className="flex justify-between border-b border-white/5 pb-2">
+                <span className="text-slate-400 font-medium">Fecha:</span>
+                <span className="font-bold text-white">{bookingResult.date}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-medium">Horario:</span>
+                <span className="font-bold text-emerald-400">{bookingResult.startAt}</span>
+              </div>
             </div>
 
             <button
               onClick={() => {
                 setSubmitted(false);
-                setFormData((prev) => ({ ...prev, name: "", phone: "", email: "", notes: "" }));
+                setSelectedPaymentMethod(null);
               }}
-              className="w-full glass-btn-secondary py-2.5 rounded-xl font-semibold text-xs text-white"
+              className="w-full glass-btn-primary font-bold text-xs py-3 rounded-xl text-white"
             >
-              Solicitar Otro Turno
+              Agendar Otro Turno
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4 text-sm">
-            {/* Anti-bot honeypot input (hidden from real users, filled by automated spambots) */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Honeypot field for anti-bot protection */}
             <input
               type="text"
               name="website"
@@ -184,8 +245,8 @@ export default function PublicBookingPage({
               className="hidden"
               tabIndex={-1}
               autoComplete="off"
-              aria-hidden="true"
             />
+
             <div>
               <label className="block text-xs font-medium text-slate-300 mb-1">
                 Servicio Deseado
@@ -203,9 +264,7 @@ export default function PublicBookingPage({
                     </option>
                   ))
                 ) : (
-                  <>
-                    <option value="">Cargando servicios disponibles...</option>
-                  </>
+                  <option value="">Cargando servicios disponibles...</option>
                 )}
               </select>
             </div>
@@ -307,13 +366,121 @@ export default function PublicBookingPage({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full glass-btn-primary font-bold text-sm py-3 rounded-xl shadow-xl text-white transition disabled:opacity-50"
+              className="w-full glass-btn-primary font-bold text-sm py-3.5 rounded-xl shadow-xl text-white transition disabled:opacity-50"
             >
-              {isSubmitting ? "Guardando Reserva..." : "⚡ Confirmar Solicitud de Turno"}
+              {isSubmitting
+                ? "Guardando Reserva..."
+                : branchData?.tenant?.requireDeposit
+                ? `Continuar a Pago de Seña ($${(branchData.tenant.depositAmount || 2000).toLocaleString("es-AR")})`
+                : "Confirmar Solicitud de Turno"}
             </button>
           </form>
         )}
       </div>
+
+      {/* Deposit Payment Modal */}
+      {showDepositModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#111216] border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl relative">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="text-lg font-black text-white">Pago de Seña de Turno</h3>
+              <button
+                onClick={() => setShowDepositModal(false)}
+                className="text-slate-400 hover:text-white font-bold text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300">
+              Para confirmar tu turno en <strong className="text-white">{branchData?.tenant?.name}</strong> se requiere abonar una seña de <strong className="text-emerald-400 font-bold">${(branchData?.tenant?.depositAmount || 2000).toLocaleString("es-AR")} ARS</strong>.
+            </p>
+
+            <div className="space-y-3">
+              <label className="block text-xs font-bold text-slate-400">Seleccioná tu método de pago:</label>
+
+              {/* Mercado Pago Option */}
+              <button
+                type="button"
+                onClick={() => setSelectedPaymentMethod("MP")}
+                className={`w-full p-4 rounded-2xl border flex items-center justify-between text-left transition ${
+                  selectedPaymentMethod === "MP"
+                    ? "border-blue-500 bg-blue-500/10 text-white ring-1 ring-blue-500"
+                    : "border-slate-800 bg-[#181920] text-slate-300 hover:border-slate-700"
+                }`}
+              >
+                <div>
+                  <div className="font-bold text-xs text-white">Mercado Pago</div>
+                  <div className="text-[11px] text-slate-400">Tarjetas de crédito, débito o dinero en cuenta</div>
+                </div>
+                <span className="text-xs font-extrabold text-blue-400">MP</span>
+              </button>
+
+              {/* Cuenta DNI Option */}
+              <button
+                type="button"
+                onClick={() => setSelectedPaymentMethod("CUENTA_DNI")}
+                className={`w-full p-4 rounded-2xl border flex items-center justify-between text-left transition ${
+                  selectedPaymentMethod === "CUENTA_DNI"
+                    ? "border-emerald-500 bg-emerald-500/10 text-white ring-1 ring-emerald-500"
+                    : "border-slate-800 bg-[#181920] text-slate-300 hover:border-slate-700"
+                }`}
+              >
+                <div>
+                  <div className="font-bold text-xs text-white">Cuenta DNI / Banco Provincia / CBU</div>
+                  <div className="text-[11px] text-slate-400">Transferencia bancaria sin comisión</div>
+                </div>
+                <span className="text-xs font-extrabold text-emerald-400">DNI</span>
+              </button>
+            </div>
+
+            {/* If Cuenta DNI is selected, show bank account details */}
+            {selectedPaymentMethod === "CUENTA_DNI" && (
+              <div className="bg-[#181920] border border-slate-800 p-4 rounded-2xl space-y-2 text-xs">
+                <span className="text-slate-400 font-bold block">Datos de transferencia:</span>
+                <div>
+                  <span className="text-slate-400 block">Alias Cuenta DNI:</span>
+                  <code className="text-emerald-400 font-bold bg-black/40 px-2 py-0.5 rounded">
+                    {branchData?.tenant?.cuentaDniAlias || "barberia.central.mp"}
+                  </code>
+                </div>
+                <div>
+                  <span className="text-slate-400 block">CBU / CVU:</span>
+                  <code className="text-slate-200 font-mono text-[11px] bg-black/40 px-2 py-0.5 rounded">
+                    {branchData?.tenant?.cuentaDniCbu || "0000003100098765432100"}
+                  </code>
+                </div>
+                <div>
+                  <span className="text-slate-400 block">Titular:</span>
+                  <span className="text-white font-semibold">
+                    {branchData?.tenant?.cuentaDniTitular || "Barbería Central SRL"}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {selectedPaymentMethod && (
+              <div className="pt-2 space-y-2">
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={async () => {
+                    setDepositNotified(true);
+                    await processBooking();
+                  }}
+                  className="w-full py-3.5 rounded-xl bg-emerald-500 text-slate-950 font-extrabold text-xs shadow-lg hover:bg-emerald-400 disabled:opacity-50"
+                >
+                  {isSubmitting
+                    ? "Confirmando..."
+                    : selectedPaymentMethod === "MP"
+                    ? "Pagar Seña con Mercado Pago"
+                    : "Notificar Transferencia y Confirmar Turno"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

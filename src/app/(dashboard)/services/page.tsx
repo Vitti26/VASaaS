@@ -56,7 +56,6 @@ export default function ServicesPage() {
     recipeQty: 1,
   });
 
-  // Load services from localStorage on mount
   useEffect(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -68,7 +67,6 @@ export default function ServicesPage() {
     }
   }, []);
 
-  // Save services to localStorage on state change
   const saveServices = (newServices: ServiceItem[]) => {
     setServices(newServices);
     try {
@@ -118,25 +116,24 @@ export default function ServicesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/10 pb-4">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
         <div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">Servicios</h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Catálogo general de servicios ofrecidos y recetas de insumos vinculadas.
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Catálogo de Servicios</h1>
+          <p className="text-xs text-slate-500 mt-1">
+            Gestión de servicios disponibles para turnos y recetas de insumos vinculadas.
           </p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="glass-btn-primary px-4 py-2.5 rounded-xl font-bold text-xs text-white shadow-lg transition flex items-center justify-center space-x-1.5"
+          className="ventura-btn-primary flex items-center space-x-1.5 text-xs shadow-md"
         >
           <span>+ Nuevo Servicio</span>
         </button>
       </div>
 
-      {/* Toast Alert */}
       {toastMessage && (
-        <div className="bg-emerald-500/20 border border-emerald-500/40 rounded-xl p-3.5 text-xs text-emerald-300 font-medium text-center backdrop-blur-md animate-fade-in">
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-xs text-emerald-800 font-medium text-center shadow-sm">
           ✓ {toastMessage}
         </div>
       )}
@@ -146,26 +143,26 @@ export default function ServicesPage() {
         {services.map((s) => (
           <div
             key={s.id}
-            className="glass-card rounded-2xl p-5 flex flex-col justify-between space-y-4 hover:border-white/20 transition"
+            className="ventura-card p-6 flex flex-col justify-between space-y-4 hover:border-slate-300 transition"
           >
             <div>
               <div className="flex items-start justify-between gap-2">
-                <h3 className="font-bold text-base text-white">{s.name}</h3>
-                <span className="text-base font-extrabold text-emerald-400 whitespace-nowrap">
+                <h3 className="font-bold text-base text-slate-900">{s.name}</h3>
+                <span className="text-base font-black text-slate-900 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
                   ${s.price.toLocaleString("es-AR")}
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-2 line-clamp-2">{s.description}</p>
+              <p className="text-xs text-slate-500 mt-2 line-clamp-2">{s.description}</p>
             </div>
-            <div className="pt-3 border-t border-white/10 flex items-center justify-between text-xs text-slate-400">
-              <span>⏱ {s.durationMinutes} min</span>
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <span className="font-semibold text-slate-700">⏱ {s.durationMinutes} min</span>
               <div className="flex items-center space-x-3">
-                <span className="text-blue-400 font-medium text-[11px]">
-                  🧪 Receta: {s.recipeCount > 0 ? `${s.recipeCount} insumos` : "Sin insumos"}
+                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full text-[11px] font-bold">
+                  🧪 {s.recipeCount > 0 ? `${s.recipeCount} insumos` : "Sin insumos"}
                 </span>
                 <button
                   onClick={() => handleDeleteService(s.id, s.name)}
-                  className="text-slate-500 hover:text-rose-400 text-xs font-bold transition"
+                  className="text-slate-400 hover:text-rose-600 text-xs font-bold transition"
                   title="Eliminar servicio"
                 >
                   ✕
@@ -182,77 +179,77 @@ export default function ServicesPage() {
         onClose={() => setIsModalOpen(false)}
         title="Crear Nuevo Servicio"
       >
-        <form onSubmit={handleCreateService} className="space-y-4">
+        <form onSubmit={handleCreateService} className="space-y-4 text-slate-800">
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">Nombre del Servicio</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Nombre del Servicio</label>
             <input
               type="text"
               placeholder="Ej: Corte de Cabello Masculino"
               value={serviceForm.name}
               onChange={(e) => setServiceForm({ ...serviceForm, name: e.target.value })}
-              className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#c6f500]"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">Descripción</label>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Descripción</label>
             <input
               type="text"
               placeholder="Descripción breve..."
               value={serviceForm.description}
               onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })}
-              className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#c6f500]"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Duración (minutos)</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Duración (minutos)</label>
               <input
                 type="number"
                 min="5"
                 value={serviceForm.durationMinutes}
                 onChange={(e) => setServiceForm({ ...serviceForm, durationMinutes: Number(e.target.value) })}
-                className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#c6f500]"
                 required
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Precio ($ ARS)</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Precio ($ ARS)</label>
               <input
                 type="number"
                 min="0"
                 value={serviceForm.price}
                 onChange={(e) => setServiceForm({ ...serviceForm, price: Number(e.target.value) })}
-                className="w-full bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#c6f500]"
                 required
               />
             </div>
           </div>
 
-          <div className="flex items-center space-x-2.5 bg-slate-900/60 p-3 rounded-xl border border-white/10">
+          <div className="flex items-center space-x-2.5 bg-slate-50 p-3 rounded-xl border border-slate-200">
             <input
               type="checkbox"
               id="hasRecipe"
               checked={serviceForm.hasRecipe}
               onChange={(e) => setServiceForm({ ...serviceForm, hasRecipe: e.target.checked })}
-              className="rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-blue-500"
+              className="rounded border-slate-300 text-slate-900 focus:ring-[#c6f500]"
             />
-            <label htmlFor="hasRecipe" className="text-xs text-slate-300 cursor-pointer font-medium">
+            <label htmlFor="hasRecipe" className="text-xs text-slate-700 cursor-pointer font-bold">
               Vincular Receta de Consumo de Insumo del Stock
             </label>
           </div>
 
           {serviceForm.hasRecipe && (
-            <div className="bg-slate-900/90 p-3.5 rounded-xl border border-white/10 space-y-3">
-              <span className="text-xs font-semibold text-blue-400">Insumo a descontar por turno:</span>
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
+              <span className="text-xs font-bold text-slate-700">Insumo a descontar por turno:</span>
               <div className="grid grid-cols-3 gap-2">
                 <div className="col-span-2">
                   <select
                     value={serviceForm.recipeProduct}
                     onChange={(e) => setServiceForm({ ...serviceForm, recipeProduct: e.target.value })}
-                    className="w-full bg-slate-950 border border-white/10 rounded-lg px-2.5 py-2 text-xs text-white"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-xs text-slate-900"
                   >
                     <option value="Tintura Rubio Claro 60ml">Tintura Rubio Claro 60ml</option>
                     <option value="Champú Profesional 1L">Champú Profesional 1L</option>
@@ -265,7 +262,7 @@ export default function ServicesPage() {
                     min="1"
                     value={serviceForm.recipeQty}
                     onChange={(e) => setServiceForm({ ...serviceForm, recipeQty: Number(e.target.value) })}
-                    className="w-full bg-slate-950 border border-white/10 rounded-lg px-2.5 py-2 text-xs text-white"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-xs text-slate-900"
                     placeholder="Cant"
                   />
                 </div>
@@ -275,7 +272,7 @@ export default function ServicesPage() {
 
           <button
             type="submit"
-            className="w-full glass-btn-primary font-bold py-3 rounded-xl shadow-xl text-sm text-white transition"
+            className="w-full ventura-btn-primary font-bold py-3 rounded-xl text-xs shadow-md transition"
           >
             ⚡ Guardar Servicio
           </button>

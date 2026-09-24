@@ -22,6 +22,7 @@ export type RegisterTenantInput = z.infer<typeof RegisterTenantSchema>;
 export const LoginSchema = z.object({
   email: z.string().email("Correo electrónico inválido"),
   password: z.string().min(1, "Ingrese su contraseña"),
+  tenantSlug: z.string().optional(),
 });
 
 export type LoginInput = z.infer<typeof LoginSchema>;
@@ -37,6 +38,7 @@ export type InviteUserInput = z.infer<typeof InviteUserSchema>;
 
 export interface OnboardingRepository {
   findTenantBySlug(slug: string): Promise<boolean>;
+  getTenantDetailsBySlug(slug: string): Promise<{ id: string; name: string; slug: string } | null>;
   findUserByEmail(email: string): Promise<{
     id: string;
     tenantId: string;
@@ -113,6 +115,13 @@ export async function loginUserService(input: LoginInput, repo: OnboardingReposi
   const passwordValid = await bcrypt.compare(validated.password, user.passwordHash);
   if (!passwordValid) {
     throw new Error("InvalidCredentials: Credenciales inválidas. Verifique su email y contraseña.");
+  }
+
+  if (validated.tenantSlug && repo.getTenantDetailsBySlug) {
+    const targetTenant = await repo.getTenantDetailsBySlug(validated.tenantSlug);
+    if (targetTenant && user.tenantId !== targetTenant.id) {
+      throw new Error(`TenantMismatch: Tu cuenta de correo no pertenece al negocio "${targetTenant.name}".`);
+    }
   }
 
   return {

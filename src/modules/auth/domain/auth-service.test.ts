@@ -11,6 +11,7 @@ import bcrypt from "bcryptjs";
 describe("Auth & Onboarding Domain Logic Tests", () => {
   const mockRepo: OnboardingRepository = {
     findTenantBySlug: vi.fn(),
+    getTenantDetailsBySlug: vi.fn(),
     findUserByEmail: vi.fn(),
     createTenantWithMasterData: vi.fn(),
   };
@@ -98,6 +99,56 @@ describe("Auth & Onboarding Domain Logic Tests", () => {
       await expect(
         loginUserService({ email: "usuario@ejemplo.com", password: "wrong-password" }, mockRepo)
       ).rejects.toThrow("InvalidCredentials");
+    });
+
+    it("should allow login when target tenantSlug matches user tenant", async () => {
+      const passwordHash = await bcrypt.hash("correct-password", 10);
+      vi.mocked(mockRepo.findUserByEmail).mockResolvedValue({
+        id: "user-123",
+        tenantId: "tenant-999",
+        email: "usuario@ejemplo.com",
+        passwordHash,
+        name: "Juan Pérez",
+        role: "OWNER",
+        assignedBranchIds: ["branch-111"],
+      });
+      vi.mocked(mockRepo.getTenantDetailsBySlug).mockResolvedValue({
+        id: "tenant-999",
+        name: "Barbería Central",
+        slug: "barberia-central",
+      });
+
+      const result = await loginUserService(
+        { email: "usuario@ejemplo.com", password: "correct-password", tenantSlug: "barberia-central" },
+        mockRepo
+      );
+
+      expect(result.tenantId).toBe("tenant-999");
+    });
+
+    it("should throw TenantMismatch when user tenantId differs from target tenantSlug", async () => {
+      const passwordHash = await bcrypt.hash("correct-password", 10);
+      vi.mocked(mockRepo.findUserByEmail).mockResolvedValue({
+        id: "user-123",
+        tenantId: "tenant-OTHER",
+        email: "usuario@ejemplo.com",
+        passwordHash,
+        name: "Juan Pérez",
+        role: "OWNER",
+        assignedBranchIds: ["branch-111"],
+      });
+      vi.mocked(mockRepo.getTenantDetailsBySlug).mockResolvedValue({
+        id: "tenant-999",
+        name: "Barbería Central",
+        slug: "barberia-central",
+      });
+
+      await expect(
+        loginUserService(
+          { email: "usuario@ejemplo.com", password: "correct-password", tenantSlug: "barberia-central" },
+          mockRepo
+        )
+      ).rejects.toThrow("TenantMismatch");
     });
   });
 
