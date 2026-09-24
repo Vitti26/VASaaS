@@ -206,8 +206,8 @@ export default function SubscriptionPage() {
               </p>
               <div className="space-y-2 pt-1 text-xs">
                 <div>
-                  <span className="text-slate-400 font-bold block">Alias Cuenta DNI / CVU:</span>
-                  <code className="text-emerald-400 font-bold text-sm bg-black/40 px-2 py-1 rounded">barberia.saas.mp</code>
+                  <span className="text-slate-400 font-bold block">Alias Cuenta DNI / Banco Provincia:</span>
+                  <code className="text-emerald-400 font-bold text-sm bg-black/40 px-2 py-1 rounded">cubeta.diente.trigo</code>
                 </div>
                 <div>
                   <span className="text-slate-400 font-bold block">CBU Banco Provincia:</span>
