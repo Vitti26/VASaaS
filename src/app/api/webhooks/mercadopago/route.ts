@@ -1,4 +1,5 @@
 // Next.js App Router Route: Only HTTP handlers (e.g. POST) are exported to prevent Vercel build errors.
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { processMercadoPagoWebhook } from "@/modules/subscriptions/domain/subscription-service";

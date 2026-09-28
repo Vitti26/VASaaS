@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/modules/shared/infrastructure/db";
 
+export const dynamic = "force-dynamic";
+
 const PaymentGatewaysSchema = z.object({
   tenantSlug: z.string().min(1),
   mpAccessToken: z.string().optional().nullable(),

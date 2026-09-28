@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/modules/shared/infrastructure/db";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   let dbStatus: "connected" | "disconnected" = "disconnected";
 
