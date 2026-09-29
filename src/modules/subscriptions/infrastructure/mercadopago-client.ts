@@ -38,7 +38,7 @@ export class MercadoPagoSubscriptionClient {
             },
             back_url: params.backUrl,
             payer_email: params.payerEmail,
-            external_reference: params.tenantId,
+            external_reference: `${params.tenantId}:${params.plan}`,
           }),
         });
 

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { getCurrentUserDetailAction } from "@/modules/auth/actions";
+import { getTenantSubscriptionAction } from "@/modules/subscriptions/actions";
 
 interface NotificationItem {
   id: string;
@@ -28,6 +29,7 @@ export default function DashboardLayout({
     role: "STAFF",
     tenantName: "Mi Negocio",
   });
+  const [simulatedTrialDay, setSimulatedTrialDay] = useState<number>(1);
 
   useEffect(() => {
     getCurrentUserDetailAction().then((u) => {
@@ -39,10 +41,19 @@ export default function DashboardLayout({
         });
       }
     });
-  }, []);
 
-  // Fading Viewport Trial Policy State (30 Days + 7 Extra Fading Days = 37 Days Max)
-  const [simulatedTrialDay, setSimulatedTrialDay] = useState<number>(33); // Default Day 33 to demonstrate fading
+    getTenantSubscriptionAction().then((res) => {
+      if (res.success && res.subscription) {
+        const sub = res.subscription;
+        if (sub.status === "ACTIVE") {
+          setSimulatedTrialDay(1);
+        } else {
+          const daysElapsed = Math.max(1, 14 - sub.trialDaysLeft);
+          setSimulatedTrialDay(daysElapsed);
+        }
+      }
+    });
+  }, []);
 
   const isGracePeriod = simulatedTrialDay > 30;
   const isBlackout = simulatedTrialDay >= 37;
@@ -385,132 +396,14 @@ export default function DashboardLayout({
               />
             </div>
 
-            {/* Trial Simulator Selector */}
-            <div className="hidden lg:flex items-center space-x-1 bg-slate-100 p-1 rounded-full text-[11px] font-bold text-slate-600">
-              <span className="px-2 text-[10px] uppercase text-slate-400 font-extrabold">Simular Trial:</span>
-              {[15, 30, 32, 34, 37].map((day) => (
-                <button
-                  key={day}
-                  onClick={() => setSimulatedTrialDay(day)}
-                  className={`px-2.5 py-0.5 rounded-full transition ${
-                    simulatedTrialDay === day
-                      ? "bg-[#111216] text-[#c6f500] shadow-sm"
-                      : "hover:bg-slate-200 text-slate-700"
-                  }`}
-                >
-                  Día {day}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Right: Actions & User Info */}
-          <div className="flex items-center space-x-4">
-            <span className="inline-flex items-center gap-x-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 border border-emerald-200">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Sesión Activa
-            </span>
-
-            {/* Notification Bell Container */}
-            <div className="relative">
-              <button
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="relative p-2 text-slate-500 hover:text-slate-800 rounded-full hover:bg-slate-100 transition focus:outline-none"
-                title="Notificaciones"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[10px] font-bold flex items-center justify-center animate-pulse">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-
-              {/* Functional Notification Dropdown Popover */}
-              {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl border border-slate-200 shadow-2xl p-4 z-50 space-y-3">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <div className="flex items-center space-x-2">
-                      <h3 className="font-extrabold text-sm text-slate-900">Notificaciones</h3>
-                      {unreadCount > 0 && (
-                        <span className="bg-[#c6f500] text-[#0f172a] text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-                          {unreadCount} nuevas
-                        </span>
-                      )}
-                    </div>
-                    {unreadCount > 0 && (
-                      <button
-                        onClick={handleMarkAllRead}
-                        className="text-[11px] font-bold text-blue-600 hover:underline"
-                      >
-                        Marcar leídas
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                    {notifications.length === 0 ? (
-                      <p className="text-xs text-slate-400 text-center py-6">No tenés notificaciones pendientes.</p>
-                    ) : (
-                      notifications.map((item) => (
-                        <div
-                          key={item.id}
-                          className={`p-3 rounded-xl border text-xs relative transition flex items-start space-x-2.5 ${
-                            item.read
-                              ? "bg-slate-50 border-slate-100 text-slate-500"
-                              : "bg-blue-50/50 border-blue-100 text-slate-800 font-medium"
-                          }`}
-                        >
-                          <span className="text-base mt-0.5">
-                            {item.type === "APPOINTMENT"
-                              ? "📅"
-                              : item.type === "STOCK"
-                              ? "⚠️"
-                              : item.type === "BILLING"
-                              ? "🧾"
-                              : "💳"}
-                          </span>
-                          <div className="flex-1 pr-4 space-y-0.5">
-                            <div className="flex items-center justify-between">
-                              <p className="font-bold text-slate-900 text-xs">{item.title}</p>
-                              <span className="text-[10px] text-slate-400">{item.time}</span>
-                            </div>
-                            <p className="text-[11px] text-slate-600 leading-normal">{item.message}</p>
-                          </div>
-                          <button
-                            onClick={() => handleDismissNotification(item.id)}
-                            className="text-slate-400 hover:text-slate-700 font-bold text-xs absolute top-2 right-2"
-                            title="Descartar"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-100 text-center">
-                    <button
-                      onClick={() => setNotificationsOpen(false)}
-                      className="text-xs font-bold text-slate-500 hover:text-slate-900"
-                    >
-                      Cerrar Panel
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* Profile Avatar Badge */}
             <div className="flex items-center space-x-2 pl-2 border-l border-slate-200">
               <div className="w-8 h-8 rounded-full bg-[#111216] text-[#c6f500] font-bold flex items-center justify-center text-xs shadow-sm">
-                JC
+                {userProfile.name ? userProfile.name.slice(0, 2).toUpperCase() : "US"}
               </div>
               <div className="hidden lg:block text-left">
-                <p className="text-xs font-bold text-slate-900 leading-tight">Juan Carlos</p>
-                <p className="text-[10px] font-semibold text-slate-400">Super Admin</p>
+                <p className="text-xs font-bold text-slate-900 leading-tight">{userProfile.name}</p>
+                <p className="text-[10px] font-semibold text-slate-400">{userProfile.role} • {userProfile.tenantName}</p>
               </div>
             </div>
           </div>

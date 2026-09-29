@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { jwtVerify } from "jose";
+import { verifySessionToken } from "@/modules/shared/infrastructure/tenant-context";
 
 const PROTECTED_ROUTES = [
   "/agenda",
@@ -14,11 +14,6 @@ const PROTECTED_ROUTES = [
   "/subscription",
   "/users",
 ];
-
-function getJwtSecret(): Uint8Array {
-  const secret = process.env.JWT_SECRET || "f7a93b8214cd0e2fa8b619d45e73091c6258a31e847029bd4912c01948d0eef3";
-  return new TextEncoder().encode(secret);
-}
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -37,7 +32,7 @@ export async function middleware(req: NextRequest) {
     }
 
     try {
-      await jwtVerify(sessionCookie, getJwtSecret());
+      await verifySessionToken(sessionCookie);
     } catch (err) {
       const loginUrl = new URL("/login", req.url);
       loginUrl.searchParams.set("redirect", pathname);
