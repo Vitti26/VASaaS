@@ -1,13 +1,21 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { db } from "@/modules/shared/infrastructure/db";
 import { revalidatePath } from "next/cache";
-import { createBranchService, CreateBranchSchema, CreateBranchInput } from "./domain/branch-service";
+import { createBranchService, CreateBranchInput } from "./domain/branch-service";
 import { prismaBranchRepository } from "./infrastructure/prisma-branch-repository";
+import { resolveTenantContext } from "@/modules/shared/infrastructure/tenant-context";
 
-export async function getBranchesAction(tenantId: string) {
+export async function getBranchesAction() {
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get("vasaas_session")?.value;
+  if (!sessionToken) return [];
+
+  const context = await resolveTenantContext(sessionToken);
+
   const branches = await db.branch.findMany({
-    where: { tenantId },
+    where: { tenantId: context.tenantId },
     orderBy: { createdAt: "asc" },
   });
 
@@ -21,15 +29,15 @@ export async function getBranchesAction(tenantId: string) {
   }));
 }
 
-export async function createBranchAction(tenantId: string, userId: string, input: CreateBranchInput) {
-  const fakeCtx = {
-    tenantId,
-    userId,
-    role: "OWNER" as const,
-    assignedBranchIds: [],
-  };
+export async function createBranchAction(input: CreateBranchInput) {
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get("vasaas_session")?.value;
+  if (!sessionToken) throw new Error("No autenticado");
 
-  const branch = await createBranchService(fakeCtx, input, prismaBranchRepository);
+  const context = await resolveTenantContext(sessionToken);
+
+  const branch = await createBranchService(context, input, prismaBranchRepository);
   revalidatePath("/branches");
   return { success: true, branch };
 }
+

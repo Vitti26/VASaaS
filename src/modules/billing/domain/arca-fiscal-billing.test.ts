@@ -15,6 +15,7 @@ import { ArcaHomologationProvider } from "../infrastructure/arca-homologation-pr
 
 describe("Fase 11: ARCA Fiscal Billing & Encryption Suite", () => {
   beforeEach(() => {
+    process.env.FISCAL_ENCRYPTION_KEY = process.env.FISCAL_ENCRYPTION_KEY || "vasaas-fiscal-secret-key-32-bytes-long!";
     ArcaHomologationProvider.clearTokenCache();
   });
 

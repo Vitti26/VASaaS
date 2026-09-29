@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Modal } from "@/components/ui/modal";
+import { getUsersAction, createUserAction } from "@/modules/users/actions";
 
 interface UserItem {
   id: string;
@@ -12,22 +13,9 @@ interface UserItem {
 }
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<UserItem[]>([
-    {
-      id: "1",
-      name: "Juan Propietario",
-      email: "owner@negocio.com",
-      role: "OWNER",
-      branchName: "Todas las sucursales",
-    },
-    {
-      id: "2",
-      name: "María Barbera",
-      email: "maria@negocio.com",
-      role: "STAFF",
-      branchName: "Sucursal Palermo",
-    },
-  ]);
+  const [users, setUsers] = useState<UserItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [userForm, setUserForm] = useState({
@@ -35,21 +23,47 @@ export default function UsersPage() {
     email: "",
     password: "",
     role: "STAFF" as "OWNER" | "ADMIN" | "STAFF",
-    branchName: "Sucursal Palermo",
   });
 
-  const handleCreateUser = (e: React.FormEvent) => {
+  const loadUsers = useCallback(async () => {
+    try {
+      const data = await getUsersAction();
+      setUsers(data as UserItem[]);
+    } catch (error) {
+      console.error("Error al cargar usuarios:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
+
+  const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newUser: UserItem = {
-      id: Date.now().toString(),
-      name: userForm.name,
-      email: userForm.email,
-      role: userForm.role,
-      branchName: userForm.branchName,
-    };
-    setUsers((prev) => [...prev, newUser]);
-    setIsModalOpen(false);
-    setUserForm({ name: "", email: "", password: "", role: "STAFF", branchName: "Sucursal Palermo" });
+    if (!userForm.name.trim() || !userForm.email.trim() || !userForm.password.trim()) {
+      alert("Por favor ingrese nombre, email y contraseña.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await createUserAction({
+        name: userForm.name.trim(),
+        email: userForm.email.trim(),
+        password: userForm.password,
+        role: userForm.role,
+      });
+
+      await loadUsers();
+      setIsModalOpen(false);
+      setUserForm({ name: "", email: "", password: "", role: "STAFF" });
+    } catch (error: any) {
+      alert(error.message || "Error al crear usuario");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -62,12 +76,20 @@ export default function UsersPage() {
             Gestión del personal (`OWNER`, `ADMIN`, `STAFF`) y asignación de sucursales.
           </p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="ventura-btn-primary text-xs shadow-md"
-        >
-          + Invitar Personal
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => loadUsers()}
+            className="ventura-btn-secondary text-xs"
+          >
+            🔄 Actualizar
+          </button>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="ventura-btn-primary text-xs shadow-md"
+          >
+            + Invitar Personal
+          </button>
+        </div>
       </div>
 
       {/* Ventura Users Table Card */}
@@ -87,26 +109,40 @@ export default function UsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {users.map((u) => (
-                <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="px-6 py-4 font-bold text-slate-900">{u.name}</td>
-                  <td className="px-6 py-4 font-medium text-slate-600">{u.email}</td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`inline-block px-3 py-1 text-[11px] font-bold rounded-full ${
-                        u.role === "OWNER"
-                          ? "bg-purple-50 text-purple-700 border border-purple-200"
-                          : u.role === "ADMIN"
-                          ? "bg-blue-50 text-blue-700 border border-blue-200"
-                          : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                      }`}
-                    >
-                      {u.role}
-                    </span>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-8 text-center text-slate-400 font-medium">
+                    Cargando equipo de trabajo...
                   </td>
-                  <td className="px-6 py-4 text-slate-500 font-medium">{u.branchName}</td>
                 </tr>
-              ))}
+              ) : users.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-8 text-center text-slate-400 font-medium">
+                    No hay usuarios registrados aún.
+                  </td>
+                </tr>
+              ) : (
+                users.map((u) => (
+                  <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-6 py-4 font-bold text-slate-900">{u.name}</td>
+                    <td className="px-6 py-4 font-medium text-slate-600">{u.email}</td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-block px-3 py-1 text-[11px] font-bold rounded-full ${
+                          u.role === "OWNER"
+                            ? "bg-purple-50 text-purple-700 border border-purple-200"
+                            : u.role === "ADMIN"
+                            ? "bg-blue-50 text-blue-700 border border-blue-200"
+                            : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        }`}
+                      >
+                        {u.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-500 font-medium">{u.branchName}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -156,40 +192,29 @@ export default function UsersPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Rol de Usuario</label>
-              <select
-                value={userForm.role}
-                onChange={(e) => setUserForm({ ...userForm, role: e.target.value as any })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:ring-[#c6f500]"
-              >
-                <option value="STAFF">STAFF (Personal atiende turnos)</option>
-                <option value="ADMIN">ADMIN (Gestor de sucursal)</option>
-                <option value="OWNER">OWNER (Propietario del Tenant)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Sucursal Asignada</label>
-              <select
-                value={userForm.branchName}
-                onChange={(e) => setUserForm({ ...userForm, branchName: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:ring-[#c6f500]"
-              >
-                <option value="Sucursal Palermo">Sucursal Palermo</option>
-                <option value="Sucursal Belgrano">Sucursal Belgrano</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Rol de Usuario</label>
+            <select
+              value={userForm.role}
+              onChange={(e) => setUserForm({ ...userForm, role: e.target.value as any })}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:ring-[#c6f500]"
+            >
+              <option value="STAFF">STAFF (Personal atiende turnos)</option>
+              <option value="ADMIN">ADMIN (Gestor de sucursal)</option>
+              <option value="OWNER">OWNER (Propietario del Tenant)</option>
+            </select>
           </div>
 
           <button
             type="submit"
-            className="w-full ventura-btn-primary font-bold py-3 rounded-xl text-xs shadow-md"
+            disabled={isSubmitting}
+            className="w-full ventura-btn-primary font-bold py-3 rounded-xl text-xs shadow-md disabled:opacity-50"
           >
-            Invitar Usuario & Encriptar Clave
+            {isSubmitting ? "Creando..." : "Invitar Usuario & Encriptar Clave"}
           </button>
         </form>
       </Modal>
     </div>
   );
 }
+

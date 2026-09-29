@@ -1,12 +1,20 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { db } from "@/modules/shared/infrastructure/db";
 import { revalidatePath } from "next/cache";
 import { SaveAfipConfigSchema, SaveAfipConfigInput } from "./domain/afip-config";
+import { resolveTenantContext } from "@/modules/shared/infrastructure/tenant-context";
 
-export async function getIssuedInvoicesAction(tenantId: string) {
+export async function getIssuedInvoicesAction() {
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get("vasaas_session")?.value;
+  if (!sessionToken) return [];
+
+  const context = await resolveTenantContext(sessionToken);
+
   const invoices = await db.invoice.findMany({
-    where: { tenantId },
+    where: { tenantId: context.tenantId },
     include: {
       customer: { select: { name: true, docType: true, docNumber: true } },
     },
@@ -28,9 +36,15 @@ export async function getIssuedInvoicesAction(tenantId: string) {
   }));
 }
 
-export async function getAfipConfigAction(tenantId: string) {
+export async function getAfipConfigAction() {
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get("vasaas_session")?.value;
+  if (!sessionToken) return null;
+
+  const context = await resolveTenantContext(sessionToken);
+
   return db.afipConfig.findFirst({
-    where: { tenantId },
+    where: { tenantId: context.tenantId },
     select: {
       cuit: true,
       certPem: true,
@@ -41,18 +55,23 @@ export async function getAfipConfigAction(tenantId: string) {
   });
 }
 
-export async function saveAfipConfigAction(tenantId: string, input: SaveAfipConfigInput) {
+export async function saveAfipConfigAction(input: SaveAfipConfigInput) {
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get("vasaas_session")?.value;
+  if (!sessionToken) throw new Error("No autenticado");
+
+  const context = await resolveTenantContext(sessionToken);
   const validated = SaveAfipConfigSchema.parse(input);
 
   await db.afipConfig.upsert({
     where: {
       tenantId_cuit: {
-        tenantId,
+        tenantId: context.tenantId,
         cuit: validated.cuit,
       },
     },
     create: {
-      tenantId,
+      tenantId: context.tenantId,
       cuit: validated.cuit,
       certPem: validated.certPem,
       keyPem: validated.keyPem,
@@ -70,3 +89,4 @@ export async function saveAfipConfigAction(tenantId: string, input: SaveAfipConf
   revalidatePath("/billing");
   return { success: true };
 }
+

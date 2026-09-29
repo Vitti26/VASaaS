@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import {
   createSessionToken,
   resolveTenantContext,
@@ -6,6 +6,9 @@ import {
 } from "../infrastructure/tenant-context";
 
 describe("Multi-Tenant Context Security & Session Isolation", () => {
+  beforeAll(() => {
+    process.env.JWT_SECRET = process.env.JWT_SECRET || "test-jwt-secret-key-must-be-min-32-chars-long";
+  });
   const validPayload = {
     tenantId: "11111111-1111-4111-a111-111111111111",
     userId: "22222222-2222-4222-a222-222222222222",

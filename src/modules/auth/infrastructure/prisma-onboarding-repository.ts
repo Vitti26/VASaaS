@@ -86,6 +86,16 @@ export const prismaOnboardingRepository: OnboardingRepository = {
         },
       });
 
+      // 5. Create Initial Subscription in TRIALING status (14 days trial)
+      const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+      await tx.subscription.create({
+        data: {
+          tenantId: tenant.id,
+          status: "TRIALING",
+          trialEndsAt,
+        },
+      });
+
       return {
         tenantId: tenant.id,
         branchId: branch.id,

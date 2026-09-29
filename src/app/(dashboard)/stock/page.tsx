@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Modal } from "@/components/ui/modal";
+import { getBranchStockAction, createProductAction, registerMovementAction } from "@/modules/stock/actions";
 
 interface StockItem {
   id: string;
+  productId: string;
   name: string;
   sku: string;
   unit: string;
@@ -15,28 +17,9 @@ interface StockItem {
 }
 
 export default function StockPage() {
-  const [stockItems, setStockItems] = useState<StockItem[]>([
-    {
-      id: "1",
-      name: "Champú Profesional 1L",
-      sku: "CHA-1000",
-      unit: "UNIT",
-      quantity: 12,
-      minStockAlert: 5,
-      isServiceInput: false,
-      price: 4500,
-    },
-    {
-      id: "2",
-      name: "Tintura Rubio Claro (Tubo 60ml)",
-      sku: "TIN-800",
-      unit: "UNIT",
-      quantity: 3,
-      minStockAlert: 5,
-      isServiceInput: true,
-      price: 2800,
-    },
-  ]);
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
@@ -52,45 +35,87 @@ export default function StockPage() {
   });
 
   const [movementForm, setMovementForm] = useState({
-    productId: "1",
+    productId: "",
     type: "IN",
     quantity: 1,
     reason: "Compra a proveedor",
   });
 
-  const handleCreateProduct = (e: React.FormEvent) => {
+  const loadStock = useCallback(async () => {
+    try {
+      const data = await getBranchStockAction();
+      setStockItems(data as StockItem[]);
+      if (data.length > 0 && !movementForm.productId) {
+        setMovementForm((prev) => ({ ...prev, productId: data[0].productId }));
+      }
+    } catch (error) {
+      console.error("Error al cargar stock:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [movementForm.productId]);
+
+  useEffect(() => {
+    loadStock();
+  }, [loadStock]);
+
+  const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newItem: StockItem = {
-      id: Date.now().toString(),
-      name: productForm.name,
-      sku: productForm.sku || "N/A",
-      unit: productForm.unit,
-      quantity: 0,
-      minStockAlert: productForm.minStockAlert,
-      isServiceInput: productForm.isServiceInput,
-      price: productForm.price,
-    };
-    setStockItems((prev) => [...prev, newItem]);
-    setIsProductModalOpen(false);
-    setProductForm({ name: "", sku: "", unit: "UNIT", price: 0, cost: 0, minStockAlert: 5, isServiceInput: false });
+    if (!productForm.name.trim()) {
+      alert("Por favor ingrese el nombre del producto.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await createProductAction({
+        name: productForm.name.trim(),
+        sku: productForm.sku.trim() || undefined,
+        unit: productForm.unit as any,
+        price: Number(productForm.price),
+        cost: Number(productForm.cost),
+        minStockAlert: Number(productForm.minStockAlert),
+        isServiceInput: productForm.isServiceInput,
+      });
+
+      await loadStock();
+      setIsProductModalOpen(false);
+      setProductForm({ name: "", sku: "", unit: "UNIT", price: 0, cost: 0, minStockAlert: 5, isServiceInput: false });
+    } catch (error: any) {
+      alert(error.message || "Error al crear producto");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleRegisterMovement = (e: React.FormEvent) => {
+  const handleRegisterMovement = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStockItems((prev) =>
-      prev.map((item) => {
-        if (item.id === movementForm.productId) {
-          const qty = Number(movementForm.quantity);
-          let newQty = item.quantity;
-          if (movementForm.type === "IN") newQty += qty;
-          else if (movementForm.type === "OUT") newQty = Math.max(0, newQty - qty);
-          else if (movementForm.type === "ADJUSTMENT") newQty = qty;
-          return { ...item, quantity: newQty };
-        }
-        return item;
-      })
-    );
-    setIsMovementModalOpen(false);
+    if (!movementForm.productId) {
+      alert("Seleccione un producto.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Find branchId for current product or branch
+      const branchStock = stockItems.find((s) => s.productId === movementForm.productId);
+      const targetBranchId = branchStock?.id ? branchStock.id : "default";
+
+      await registerMovementAction({
+        branchId: targetBranchId,
+        productId: movementForm.productId,
+        type: movementForm.type as any,
+        quantity: Number(movementForm.quantity),
+        reason: movementForm.reason.trim() || undefined,
+      });
+
+      await loadStock();
+      setIsMovementModalOpen(false);
+    } catch (error: any) {
+      alert(error.message || "Error al registrar movimiento");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const totalProductos = stockItems.length;
@@ -109,6 +134,12 @@ export default function StockPage() {
           </p>
         </div>
         <div className="flex gap-2.5">
+          <button
+            onClick={() => loadStock()}
+            className="ventura-btn-secondary text-xs"
+          >
+            🔄 Actualizar
+          </button>
           <button
             onClick={() => setIsMovementModalOpen(true)}
             className="ventura-btn-secondary text-xs"
@@ -202,42 +233,56 @@ export default function StockPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {stockItems.map((item) => {
-                const isLowStock = item.quantity <= item.minStockAlert;
-                return (
-                  <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="px-6 py-4 font-bold text-slate-900">
-                      {item.name}
-                      {isLowStock && (
-                        <span className="ml-2.5 inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">
-                          ⚠️ Stock Bajo
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-slate-400 font-medium">
+                    Cargando inventario de stock...
+                  </td>
+                </tr>
+              ) : stockItems.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-slate-400 font-medium">
+                    No hay productos en inventario aún. ¡Agregá el primero con el botón &quot;+ Nuevo Producto / Insumo&quot;!
+                  </td>
+                </tr>
+              ) : (
+                stockItems.map((item) => {
+                  const isLowStock = item.quantity <= item.minStockAlert;
+                  return (
+                    <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="px-6 py-4 font-bold text-slate-900">
+                        {item.name}
+                        {isLowStock && (
+                          <span className="ml-2.5 inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">
+                            ⚠️ Stock Bajo
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-slate-500 font-mono text-xs">{item.sku}</td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-block px-2.5 py-1 text-[11px] font-bold rounded-full ${
+                            item.isServiceInput
+                              ? "bg-purple-50 text-purple-700 border border-purple-200"
+                              : "bg-blue-50 text-blue-700 border border-blue-200"
+                          }`}
+                        >
+                          {item.isServiceInput ? "Insumo Servicio" : "Producto Reventa"}
                         </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-slate-500 font-mono text-xs">{item.sku}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-block px-2.5 py-1 text-[11px] font-bold rounded-full ${
-                          item.isServiceInput
-                            ? "bg-purple-50 text-purple-700 border border-purple-200"
-                            : "bg-blue-50 text-blue-700 border border-blue-200"
-                        }`}
-                      >
-                        {item.isServiceInput ? "Insumo Servicio" : "Producto Reventa"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-bold text-slate-900">
-                      {item.quantity} {item.unit}
-                    </td>
-                    <td className="px-6 py-4 text-slate-500">
-                      {item.minStockAlert} {item.unit}
-                    </td>
-                    <td className="px-6 py-4 text-slate-900 font-bold">
-                      ${item.price.toLocaleString("es-AR")}
-                    </td>
-                  </tr>
-                );
-              })}
+                      </td>
+                      <td className="px-6 py-4 font-bold text-slate-900">
+                        {item.quantity} {item.unit}
+                      </td>
+                      <td className="px-6 py-4 text-slate-500">
+                        {item.minStockAlert} {item.unit}
+                      </td>
+                      <td className="px-6 py-4 text-slate-900 font-bold">
+                        ${item.price.toLocaleString("es-AR")}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -329,9 +374,10 @@ export default function StockPage() {
 
           <button
             type="submit"
-            className="w-full ventura-btn-primary font-bold py-3 rounded-xl text-xs shadow-md"
+            disabled={isSubmitting}
+            className="w-full ventura-btn-primary font-bold py-3 rounded-xl text-xs shadow-md disabled:opacity-50"
           >
-            Guardar Producto en Base de Datos
+            {isSubmitting ? "Guardando..." : "Guardar Producto en Base de Datos"}
           </button>
         </form>
       </Modal>
@@ -351,7 +397,7 @@ export default function StockPage() {
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:ring-[#c6f500]"
             >
               {stockItems.map((item) => (
-                <option key={item.id} value={item.id}>
+                <option key={item.productId} value={item.productId}>
                   {item.name} (Stock actual: {item.quantity})
                 </option>
               ))}
@@ -397,12 +443,14 @@ export default function StockPage() {
 
           <button
             type="submit"
-            className="w-full ventura-btn-primary font-bold py-3 rounded-xl text-xs shadow-md"
+            disabled={isSubmitting}
+            className="w-full ventura-btn-primary font-bold py-3 rounded-xl text-xs shadow-md disabled:opacity-50"
           >
-            ⚡ Registrar Movimiento & Actualizar Stock
+            {isSubmitting ? "Registrando..." : "⚡ Registrar Movimiento & Actualizar Stock"}
           </button>
         </form>
       </Modal>
     </div>
   );
 }
+

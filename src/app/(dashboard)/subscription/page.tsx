@@ -1,18 +1,39 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { subscribeToPlanAction, getTenantSubscriptionAction } from "@/modules/subscriptions/actions";
 
 export default function SubscriptionPage() {
   const [currentPlan, setCurrentPlan] = useState<"STARTER" | "PRO">("STARTER");
-  const [trialDaysLeft] = useState(12);
+  const [trialDaysLeft, setTrialDaysLeft] = useState<number>(14);
+  const [loading, setLoading] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [selectedPlanForTransfer, setSelectedPlanForTransfer] = useState<"STARTER" | "PRO">("PRO");
   const [transferSuccess, setTransferSuccess] = useState(false);
 
+  useEffect(() => {
+    getTenantSubscriptionAction().then((res) => {
+      if (res.success && res.subscription) {
+        setCurrentPlan(res.subscription.plan as "STARTER" | "PRO");
+        setTrialDaysLeft(res.subscription.trialDaysLeft);
+      }
+    });
+  }, []);
+
   const handleSubscribeMercadoPago = async (plan: "STARTER" | "PRO") => {
-    const price = plan === "PRO" ? "$100.000 ARS/mes" : "$50.000 ARS/mes";
-    alert(`Redirigiendo a Mercado Pago para procesar la suscripción al Plan ${plan} (${price})...`);
-    setCurrentPlan(plan);
+    setLoading(true);
+    try {
+      const res = await subscribeToPlanAction(plan);
+      if (res.success && res.initPoint) {
+        window.location.href = res.initPoint;
+      } else {
+        alert(res.error || "No se pudo generar el checkout de Mercado Pago");
+      }
+    } catch (err: any) {
+      alert("Error de conexión: " + (err.message || "Error al conectar con Mercado Pago"));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleOpenTransfer = (plan: "STARTER" | "PRO") => {

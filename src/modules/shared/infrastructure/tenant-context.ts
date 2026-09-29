@@ -1,22 +1,26 @@
 import { jwtVerify, SignJWT } from "jose";
 import { AuthSessionPayload, TenantContext, TenantContextSchema } from "../domain/tenant";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "fallback-secret-for-development-tests-only-min-32-chars"
-);
+function getJwtSecret(): Uint8Array {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET no configurado");
+  }
+  return new TextEncoder().encode(secret);
+}
 
 export async function createSessionToken(payload: AuthSessionPayload): Promise<string> {
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("24h")
-    .sign(JWT_SECRET);
+    .sign(getJwtSecret());
 }
 
 export async function verifySessionToken(token: string): Promise<TenantContext> {
   let payload: Record<string, unknown>;
   try {
-    const verified = await jwtVerify(token, JWT_SECRET);
+    const verified = await jwtVerify(token, getJwtSecret());
     payload = verified.payload as Record<string, unknown>;
   } catch (error) {
     throw new Error("Unauthorized: Invalid or expired session token");

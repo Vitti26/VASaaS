@@ -21,7 +21,7 @@ export default function PaymentGatewaysPage() {
   useEffect(() => {
     async function loadSettings() {
       try {
-        const res = await fetch("/api/settings/payment-gateways?slug=barberia-demo");
+        const res = await fetch("/api/settings/payment-gateways");
         if (res.ok) {
           const data = await res.json();
           if (data.paymentGateways) {
@@ -54,7 +54,6 @@ export default function PaymentGatewaysPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tenantSlug: "barberia-demo",
           mpAccessToken,
           mpPublicKey,
           cuentaDniAlias,
@@ -77,6 +76,7 @@ export default function PaymentGatewaysPage() {
       setSaving(false);
     }
   };
+
 
   if (loading) {
     return (

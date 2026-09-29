@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { db } from "@/modules/shared/infrastructure/db";
 import { createSessionToken, verifySessionToken } from "@/modules/shared/infrastructure/tenant-context";
 import {
   LoginInput,
@@ -83,6 +84,30 @@ export async function getCurrentSessionAction() {
     if (!token) return null;
 
     return await verifySessionToken(token);
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function getCurrentUserDetailAction() {
+  try {
+    const cookieStore = cookies();
+    const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    if (!token) return null;
+
+    const session = await verifySessionToken(token);
+    const user = await db.user.findFirst({
+      where: { id: session.userId, tenantId: session.tenantId },
+      select: { name: true, role: true, tenant: { select: { name: true } } },
+    });
+
+    if (!user) return null;
+
+    return {
+      name: user.name,
+      role: user.role,
+      tenantName: user.tenant.name,
+    };
   } catch (error) {
     return null;
   }

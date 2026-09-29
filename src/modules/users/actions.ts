@@ -1,13 +1,21 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { db } from "@/modules/shared/infrastructure/db";
 import { revalidatePath } from "next/cache";
-import { createUserService, CreateUserSchema, CreateUserInput } from "./domain/user-service";
+import { createUserService, CreateUserInput } from "./domain/user-service";
 import { prismaUserRepository } from "./infrastructure/prisma-user-repository";
+import { resolveTenantContext } from "@/modules/shared/infrastructure/tenant-context";
 
-export async function getUsersAction(tenantId: string) {
+export async function getUsersAction() {
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get("vasaas_session")?.value;
+  if (!sessionToken) return [];
+
+  const context = await resolveTenantContext(sessionToken);
+
   const users = await db.user.findMany({
-    where: { tenantId },
+    where: { tenantId: context.tenantId },
     include: {
       userBranches: {
         include: { branch: { select: { name: true } } },
@@ -25,15 +33,44 @@ export async function getUsersAction(tenantId: string) {
   }));
 }
 
-export async function createUserAction(tenantId: string, userId: string, input: CreateUserInput) {
-  const fakeCtx = {
-    tenantId,
-    userId,
-    role: "OWNER" as const,
-    assignedBranchIds: [],
-  };
+export async function createUserAction(input: {
+  name: string;
+  email: string;
+  password: string;
+  role: "OWNER" | "ADMIN" | "STAFF";
+  assignedBranchIds?: string[];
+}) {
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get("vasaas_session")?.value;
+  if (!sessionToken) throw new Error("No autenticado");
 
-  const user = await createUserService(fakeCtx, input, prismaUserRepository);
+  const context = await resolveTenantContext(sessionToken);
+
+  let branchIds = input.assignedBranchIds;
+  if (!branchIds || branchIds.length === 0) {
+    const firstBranch = await db.branch.findFirst({
+      where: { tenantId: context.tenantId },
+      select: { id: true },
+    });
+    if (!firstBranch) {
+      throw new Error("No existe ninguna sucursal activa para asignar al usuario");
+    }
+    branchIds = [firstBranch.id];
+  }
+
+  const user = await createUserService(
+    context,
+    {
+      name: input.name,
+      email: input.email,
+      password: input.password,
+      role: input.role,
+      assignedBranchIds: branchIds,
+    },
+    prismaUserRepository
+  );
+
   revalidatePath("/users");
   return { success: true, user };
 }
+

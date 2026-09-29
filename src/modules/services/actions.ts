@@ -1,13 +1,21 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { db } from "@/modules/shared/infrastructure/db";
 import { revalidatePath } from "next/cache";
-import { createServiceWithRecipe, CreateServiceSchema, CreateServiceInput } from "./domain/service-management";
+import { createServiceWithRecipe, CreateServiceInput } from "./domain/service-management";
 import { prismaServiceRepository } from "./infrastructure/prisma-service-repository";
+import { resolveTenantContext } from "@/modules/shared/infrastructure/tenant-context";
 
-export async function getServicesAction(tenantId: string) {
+export async function getServicesAction() {
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get("vasaas_session")?.value;
+  if (!sessionToken) return [];
+
+  const context = await resolveTenantContext(sessionToken);
+
   const services = await db.service.findMany({
-    where: { tenantId },
+    where: { tenantId: context.tenantId },
     include: {
       recipes: {
         include: { product: { select: { name: true } } },
@@ -31,15 +39,15 @@ export async function getServicesAction(tenantId: string) {
   }));
 }
 
-export async function createServiceAction(tenantId: string, userId: string, input: CreateServiceInput) {
-  const fakeCtx = {
-    tenantId,
-    userId,
-    role: "OWNER" as const,
-    assignedBranchIds: [],
-  };
+export async function createServiceAction(input: CreateServiceInput) {
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get("vasaas_session")?.value;
+  if (!sessionToken) throw new Error("No autenticado");
 
-  const service = await createServiceWithRecipe(fakeCtx, input, prismaServiceRepository);
+  const context = await resolveTenantContext(sessionToken);
+
+  const service = await createServiceWithRecipe(context, input, prismaServiceRepository);
   revalidatePath("/services");
   return { success: true, service };
 }
+

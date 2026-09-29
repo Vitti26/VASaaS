@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { getCurrentUserDetailAction } from "@/modules/auth/actions";
 
 interface NotificationItem {
   id: string;
@@ -22,6 +23,23 @@ export default function DashboardLayout({
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState<{ name: string; role: string; tenantName: string }>({
+    name: "Usuario",
+    role: "STAFF",
+    tenantName: "Mi Negocio",
+  });
+
+  useEffect(() => {
+    getCurrentUserDetailAction().then((u) => {
+      if (u) {
+        setUserProfile({
+          name: u.name,
+          role: u.role,
+          tenantName: u.tenantName,
+        });
+      }
+    });
+  }, []);
 
   // Fading Viewport Trial Policy State (30 Days + 7 Extra Fading Days = 37 Days Max)
   const [simulatedTrialDay, setSimulatedTrialDay] = useState<number>(33); // Default Day 33 to demonstrate fading
@@ -288,11 +306,11 @@ export default function DashboardLayout({
           <div className="flex items-center justify-between p-2 rounded-xl bg-[#1c1e24] border border-slate-800/60">
             <div className="flex items-center space-x-2.5">
               <div className="w-8 h-8 rounded-full bg-[#c6f500] text-[#0f172a] font-bold flex items-center justify-center text-xs">
-                JC
+                {userProfile.name.slice(0, 2).toUpperCase()}
               </div>
               <div className="overflow-hidden">
-                <p className="text-xs font-bold text-white truncate">Juan Carlos</p>
-                <p className="text-[10px] text-slate-400 truncate">Owner • Barbería</p>
+                <p className="text-xs font-bold text-white truncate">{userProfile.name}</p>
+                <p className="text-[10px] text-slate-400 truncate">{userProfile.role} • {userProfile.tenantName}</p>
               </div>
             </div>
             <span className="w-2 h-2 rounded-full bg-[#c6f500] animate-pulse"></span>

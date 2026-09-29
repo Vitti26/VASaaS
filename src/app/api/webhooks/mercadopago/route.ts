@@ -21,10 +21,20 @@ const MercadoPagoWebhookBodySchema = z.object({
 export async function POST(req: Request) {
   try {
     const rawBody = await req.text();
+
+    // 1. Payload size limit (Max 100 KB)
+    if (rawBody.length > 100 * 1024) {
+      return NextResponse.json({ error: "Payload demasiado grande" }, { status: 413 });
+    }
+
     const signatureHeader = req.headers.get("x-signature") || undefined;
     const webhookSecret = process.env.MP_WEBHOOK_SECRET;
 
-    // Verify HMAC signature if MP_WEBHOOK_SECRET is configured
+    // 2. Strict HMAC signature verification (Required in production or when secret configured)
+    if (process.env.NODE_ENV === "production" && !webhookSecret) {
+      return NextResponse.json({ error: "Configuración de MP_WEBHOOK_SECRET faltante en el servidor" }, { status: 500 });
+    }
+
     if (webhookSecret && !verifyMercadoPagoWebhookSignature(rawBody, signatureHeader, webhookSecret)) {
       return NextResponse.json({ error: "Firma de webhook inválida" }, { status: 401 });
     }
@@ -32,7 +42,7 @@ export async function POST(req: Request) {
     const body = JSON.parse(rawBody);
     const validated = MercadoPagoWebhookBodySchema.parse(body);
 
-    // Deduplication / Idempotency Check
+    // 3. Deduplication / Idempotency Check
     const eventKey = `${validated.action}:${validated.data.id}:${validated.newStatus}`;
     if (processedWebhookEvents.has(eventKey)) {
       return NextResponse.json({ success: true, message: "Evento ya procesado (Idempotente)" });

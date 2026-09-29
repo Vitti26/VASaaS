@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { z } from "zod";
 import { db } from "@/modules/shared/infrastructure/db";
+import { resolveTenantContext } from "@/modules/shared/infrastructure/tenant-context";
 
 export const dynamic = "force-dynamic";
 
 const PaymentGatewaysSchema = z.object({
-  tenantSlug: z.string().min(1),
   mpAccessToken: z.string().optional().nullable(),
   mpPublicKey: z.string().optional().nullable(),
   cuentaDniAlias: z.string().optional().nullable(),
@@ -15,13 +16,18 @@ const PaymentGatewaysSchema = z.object({
   depositAmount: z.number().min(0).optional().nullable(),
 });
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(req.url);
-    const slug = searchParams.get("slug") || "barberia-demo";
+    const cookieStore = cookies();
+    const sessionToken = cookieStore.get("vasaas_session")?.value;
+    if (!sessionToken) {
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+    }
+
+    const context = await resolveTenantContext(sessionToken);
 
     const tenant = await db.tenant.findUnique({
-      where: { slug },
+      where: { id: context.tenantId },
       select: {
         id: true,
         name: true,
@@ -37,7 +43,7 @@ export async function GET(req: Request) {
     });
 
     if (!tenant) {
-      return NextResponse.json({ error: "Barbería no encontrada" }, { status: 404 });
+      return NextResponse.json({ error: "Tenant no encontrado" }, { status: 404 });
     }
 
     return NextResponse.json({
@@ -59,11 +65,19 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const cookieStore = cookies();
+    const sessionToken = cookieStore.get("vasaas_session")?.value;
+    if (!sessionToken) {
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+    }
+
+    const context = await resolveTenantContext(sessionToken);
+
     const body = await req.json();
     const validated = PaymentGatewaysSchema.parse(body);
 
     const updated = await db.tenant.update({
-      where: { slug: validated.tenantSlug },
+      where: { id: context.tenantId },
       data: {
         mpAccessToken: validated.mpAccessToken || null,
         mpPublicKey: validated.mpPublicKey || null,
@@ -88,3 +102,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 }
+

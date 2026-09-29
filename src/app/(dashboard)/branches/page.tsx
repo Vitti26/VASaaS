@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Modal } from "@/components/ui/modal";
+import { getBranchesAction, createBranchAction } from "@/modules/branches/actions";
 
 interface BranchItem {
   id: string;
@@ -12,15 +13,9 @@ interface BranchItem {
 }
 
 export default function BranchesPage() {
-  const [branches, setBranches] = useState<BranchItem[]>([
-    {
-      id: "1",
-      name: "Sucursal Central Palermo",
-      city: "Buenos Aires",
-      phone: "+54 11 4444-5555",
-      isActive: true,
-    },
-  ]);
+  const [branches, setBranches] = useState<BranchItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [branchForm, setBranchForm] = useState({
@@ -30,18 +25,45 @@ export default function BranchesPage() {
     phone: "",
   });
 
-  const handleCreateBranch = (e: React.FormEvent) => {
+  const loadBranches = useCallback(async () => {
+    try {
+      const data = await getBranchesAction();
+      setBranches(data as BranchItem[]);
+    } catch (error) {
+      console.error("Error al cargar sucursales:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadBranches();
+  }, [loadBranches]);
+
+  const handleCreateBranch = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newBranch: BranchItem = {
-      id: Date.now().toString(),
-      name: branchForm.name,
-      city: branchForm.city,
-      phone: branchForm.phone || "-",
-      isActive: true,
-    };
-    setBranches((prev) => [...prev, newBranch]);
-    setIsModalOpen(false);
-    setBranchForm({ name: "", city: "Buenos Aires", address: "", phone: "" });
+    if (!branchForm.name.trim()) {
+      alert("Por favor ingrese el nombre de la sucursal.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await createBranchAction({
+        name: branchForm.name.trim(),
+        city: branchForm.city.trim() || undefined,
+        address: branchForm.address.trim() || undefined,
+        phone: branchForm.phone.trim() || undefined,
+      });
+
+      await loadBranches();
+      setIsModalOpen(false);
+      setBranchForm({ name: "", city: "Buenos Aires", address: "", phone: "" });
+    } catch (error: any) {
+      alert(error.message || "Error al crear sucursal");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -54,34 +76,52 @@ export default function BranchesPage() {
             Administrá las sedes activas de tu negocio. Plan STARTER: máximo 1 sucursal.
           </p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="ventura-btn-primary text-xs shadow-md"
-        >
-          + Nueva Sucursal
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => loadBranches()}
+            className="ventura-btn-secondary text-xs"
+          >
+            🔄 Actualizar
+          </button>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="ventura-btn-primary text-xs shadow-md"
+          >
+            + Nueva Sucursal
+          </button>
+        </div>
       </div>
 
       {/* Branches Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {branches.map((branch) => (
-          <div
-            key={branch.id}
-            className="ventura-card p-6 space-y-4 hover:border-slate-300 transition"
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-base text-slate-900">{branch.name}</h3>
-              <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Activa
-              </span>
+      {isLoading ? (
+        <div className="p-8 text-center text-slate-400 text-xs font-medium">
+          Cargando sucursales...
+        </div>
+      ) : branches.length === 0 ? (
+        <div className="p-8 text-center text-slate-400 text-xs font-medium">
+          No hay sucursales registradas aún.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {branches.map((branch) => (
+            <div
+              key={branch.id}
+              className="ventura-card p-6 space-y-4 hover:border-slate-300 transition"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-base text-slate-900">{branch.name}</h3>
+                <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  {branch.isActive ? "Activa" : "Inactiva"}
+                </span>
+              </div>
+              <div className="text-xs text-slate-500 space-y-1 font-medium">
+                <p>📍 Ciudad: {branch.city}</p>
+                <p>📞 Teléfono: {branch.phone}</p>
+              </div>
             </div>
-            <div className="text-xs text-slate-500 space-y-1 font-medium">
-              <p>📍 Ciudad: {branch.city}</p>
-              <p>📞 Teléfono: {branch.phone}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Modal Nueva Sucursal */}
       <Modal
@@ -138,12 +178,14 @@ export default function BranchesPage() {
 
           <button
             type="submit"
-            className="w-full ventura-btn-primary font-bold py-3 rounded-xl text-xs shadow-md"
+            disabled={isSubmitting}
+            className="w-full ventura-btn-primary font-bold py-3 rounded-xl text-xs shadow-md disabled:opacity-50"
           >
-            Guardar Sucursal en PostgreSQL
+            {isSubmitting ? "Guardando..." : "Guardar Sucursal en PostgreSQL"}
           </button>
         </form>
       </Modal>
     </div>
   );
 }
+

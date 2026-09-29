@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "SaaS Multi-Tenant - Gestión de Turnos, Stock y Facturación",
   description: "Plataforma integral para pequeños negocios: agenda de turnos, facturación AFIP y control de stock multi-sucursal.",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({

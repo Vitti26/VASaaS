@@ -1,7 +1,13 @@
 import crypto from "crypto";
 
 const ALGORITHM = "aes-256-gcm";
-const DEFAULT_KEY_PHRASE = process.env.FISCAL_ENCRYPTION_KEY || "vasaas-fiscal-secret-key-32-bytes-long!";
+function getFiscalSecretKey(): string {
+  const key = process.env.FISCAL_ENCRYPTION_KEY;
+  if (!key) {
+    throw new Error("FISCAL_ENCRYPTION_KEY no configurado");
+  }
+  return key;
+}
 
 function getDerivedKey(keyPhrase: string): Buffer {
   return crypto.createHash("sha256").update(keyPhrase).digest();
@@ -10,9 +16,10 @@ function getDerivedKey(keyPhrase: string): Buffer {
 /**
  * Encrypts sensitive fiscal data (such as private keys or certificates) using AES-256-GCM.
  */
-export function encryptFiscalSecret(plainText: string, keyPhrase: string = DEFAULT_KEY_PHRASE): string {
+export function encryptFiscalSecret(plainText: string, keyPhrase?: string): string {
+  const secretKey = keyPhrase || getFiscalSecretKey();
   const iv = crypto.randomBytes(12);
-  const key = getDerivedKey(keyPhrase);
+  const key = getDerivedKey(secretKey);
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
 
   let encrypted = cipher.update(plainText, "utf8", "hex");
@@ -26,7 +33,8 @@ export function encryptFiscalSecret(plainText: string, keyPhrase: string = DEFAU
 /**
  * Decrypts AES-256-GCM encrypted fiscal data.
  */
-export function decryptFiscalSecret(cipherText: string, keyPhrase: string = DEFAULT_KEY_PHRASE): string {
+export function decryptFiscalSecret(cipherText: string, keyPhrase?: string): string {
+  const secretKey = keyPhrase || getFiscalSecretKey();
   const parts = cipherText.split(":");
   if (parts.length !== 3) {
     throw new Error("Formato de texto cifrado fiscal inválido");
@@ -35,7 +43,7 @@ export function decryptFiscalSecret(cipherText: string, keyPhrase: string = DEFA
   const [ivHex, authTagHex, encryptedHex] = parts;
   const iv = Buffer.from(ivHex, "hex");
   const authTag = Buffer.from(authTagHex, "hex");
-  const key = getDerivedKey(keyPhrase);
+  const key = getDerivedKey(secretKey);
 
   const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
   decipher.setAuthTag(authTag);
