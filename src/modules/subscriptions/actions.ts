@@ -91,7 +91,7 @@ export async function subscribeToPlanAction(plan: "STARTER" | "PRO") {
           tenantId: context.tenantId,
           mpSubscriptionId: checkout.subscriptionId,
           status: "TRIALING",
-          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
       });
     }

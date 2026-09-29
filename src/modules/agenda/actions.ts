@@ -103,6 +103,8 @@ export async function getPublicBranchDataAction(tenantSlug: string, branchSlug: 
   };
 }
 
+import { assertTenantSubscriptionActive } from "@/modules/subscriptions/domain/subscription-policy";
+
 export async function createPublicBookingAction(input: PublicBookingInput, clientIp: string = "127.0.0.1") {
   const parsed = PublicBookingSchema.safeParse(input);
   if (!parsed.success) {
@@ -133,6 +135,16 @@ export async function createPublicBookingAction(input: PublicBookingInput, clien
     throw new Error("El sistema de reservas del negocio se encuentra recibiendo muchas solicitudes simultáneas. Intente nuevamente en unos instantes.");
   }
 
+  // Server-side subscription soft-lock check for target tenant
+  const tenant = await db.tenant.findUnique({
+    where: { slug: validated.tenantSlug },
+    select: { id: true },
+  });
+  if (!tenant) {
+    throw new Error("Negocio no encontrado.");
+  }
+  await assertTenantSubscriptionActive(tenant.id);
+
   // 5. Active booking quota per phone check against database
   const activeCountForPhone = await db.appointment.count({
     where: {
@@ -158,6 +170,7 @@ export async function updateAppointmentStatusAction(appointmentId: string, statu
   }
 
   const context = await resolveTenantContext(sessionToken);
+  await assertTenantSubscriptionActive(context.tenantId);
 
   await db.appointment.updateMany({
     where: { id: appointmentId, tenantId: context.tenantId },

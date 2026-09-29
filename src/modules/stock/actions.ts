@@ -41,12 +41,15 @@ export async function getBranchStockAction(branchId?: string) {
   }));
 }
 
+import { assertTenantSubscriptionActive } from "@/modules/subscriptions/domain/subscription-policy";
+
 export async function createProductAction(input: CreateProductInput, branchId?: string) {
   const cookieStore = cookies();
   const sessionToken = cookieStore.get("vasaas_session")?.value;
   if (!sessionToken) throw new Error("No autenticado");
 
   const context = await resolveTenantContext(sessionToken);
+  await assertTenantSubscriptionActive(context.tenantId);
   const validated = CreateProductSchema.parse(input);
 
   let targetBranchId = branchId;
@@ -86,6 +89,7 @@ export async function registerMovementAction(input: RegisterStockMovementInput) 
   if (!sessionToken) throw new Error("No autenticado");
 
   const context = await resolveTenantContext(sessionToken);
+  await assertTenantSubscriptionActive(context.tenantId);
   const validated = RegisterStockMovementSchema.parse(input);
 
   const result = await registerStockMovementService(context, validated, prismaStockRepository);

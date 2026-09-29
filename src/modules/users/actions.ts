@@ -33,6 +33,8 @@ export async function getUsersAction() {
   }));
 }
 
+import { assertTenantSubscriptionActive } from "@/modules/subscriptions/domain/subscription-policy";
+
 export async function createUserAction(input: {
   name: string;
   email: string;
@@ -45,6 +47,7 @@ export async function createUserAction(input: {
   if (!sessionToken) throw new Error("No autenticado");
 
   const context = await resolveTenantContext(sessionToken);
+  await assertTenantSubscriptionActive(context.tenantId);
 
   let branchIds = input.assignedBranchIds;
   if (!branchIds || branchIds.length === 0) {

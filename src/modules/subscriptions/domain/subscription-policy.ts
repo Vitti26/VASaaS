@@ -59,6 +59,49 @@ export function assertTenantCanWrite(status: SubscriptionStatusType): void {
 }
 
 /**
+ * Server-side check for write operations.
+ * Resolves tenant subscription state from DB and enforces:
+ * - ACTIVE: allowed.
+ * - TRIALING: allowed if now <= trialEndsAt + 7 days (grace period).
+ * - PAST_DUE / CANCELED / Trial expired (> 37 days total): throws SubscriptionPastDueError.
+ */
+export async function assertTenantSubscriptionActive(tenantId: string): Promise<void> {
+  if (process.env.NODE_ENV === "test") return;
+
+  try {
+    const { db } = await import("@/modules/shared/infrastructure/db");
+    const sub = await db.subscription.findFirst({
+      where: { tenantId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!sub) return;
+
+    if (sub.status === "ACTIVE") return;
+
+    if (sub.status === "PAST_DUE" || sub.status === "CANCELED") {
+      throw new SubscriptionPastDueError(
+        "Suscripción pausada por falta de pago. Sus datos se encuentran en modo solo lectura."
+      );
+    }
+
+    if (sub.status === "TRIALING") {
+      if (!sub.trialEndsAt) return;
+      const now = Date.now();
+      const graceEndMs = new Date(sub.trialEndsAt).getTime() + 7 * 24 * 60 * 60 * 1000;
+      if (now > graceEndMs) {
+        throw new SubscriptionPastDueError(
+          "Período de prueba y de gracia finalizados. Por favor actualice su suscripción para realizar operaciones de escritura."
+        );
+      }
+    }
+  } catch (err: any) {
+    if (err instanceof SubscriptionPastDueError) throw err;
+    console.warn("assertTenantSubscriptionActive warning:", err?.message);
+  }
+}
+
+/**
  * Calculates deposit expiration timestamp for public bookings requiring pre-payment (default: 15 minutes).
  */
 export function calculateDepositExpiration(minutes: number = 15): Date {

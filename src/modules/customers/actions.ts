@@ -30,12 +30,15 @@ export async function getCustomersAction() {
   }));
 }
 
+import { assertTenantSubscriptionActive } from "@/modules/subscriptions/domain/subscription-policy";
+
 export async function createCustomerAction(input: CreateCustomerInput) {
   const cookieStore = cookies();
   const sessionToken = cookieStore.get("vasaas_session")?.value;
   if (!sessionToken) throw new Error("No autenticado");
 
   const context = await resolveTenantContext(sessionToken);
+  await assertTenantSubscriptionActive(context.tenantId);
 
   const customer = await createCustomerService(context, input, prismaCustomerRepository);
   revalidatePath("/customers");

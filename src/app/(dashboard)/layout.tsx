@@ -48,7 +48,7 @@ export default function DashboardLayout({
         if (sub.status === "ACTIVE") {
           setSimulatedTrialDay(1);
         } else {
-          const daysElapsed = Math.max(1, 14 - sub.trialDaysLeft);
+          const daysElapsed = Math.max(1, 30 - sub.trialDaysLeft);
           setSimulatedTrialDay(daysElapsed);
         }
       }

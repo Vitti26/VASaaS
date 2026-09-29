@@ -55,12 +55,15 @@ export async function getAfipConfigAction() {
   });
 }
 
+import { assertTenantSubscriptionActive } from "@/modules/subscriptions/domain/subscription-policy";
+
 export async function saveAfipConfigAction(input: SaveAfipConfigInput) {
   const cookieStore = cookies();
   const sessionToken = cookieStore.get("vasaas_session")?.value;
   if (!sessionToken) throw new Error("No autenticado");
 
   const context = await resolveTenantContext(sessionToken);
+  await assertTenantSubscriptionActive(context.tenantId);
   const validated = SaveAfipConfigSchema.parse(input);
 
   await db.afipConfig.upsert({

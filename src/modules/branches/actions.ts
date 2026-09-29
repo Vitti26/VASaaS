@@ -29,12 +29,15 @@ export async function getBranchesAction() {
   }));
 }
 
+import { assertTenantSubscriptionActive } from "@/modules/subscriptions/domain/subscription-policy";
+
 export async function createBranchAction(input: CreateBranchInput) {
   const cookieStore = cookies();
   const sessionToken = cookieStore.get("vasaas_session")?.value;
   if (!sessionToken) throw new Error("No autenticado");
 
   const context = await resolveTenantContext(sessionToken);
+  await assertTenantSubscriptionActive(context.tenantId);
 
   const branch = await createBranchService(context, input, prismaBranchRepository);
   revalidatePath("/branches");
