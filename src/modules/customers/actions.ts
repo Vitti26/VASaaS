@@ -31,6 +31,7 @@ export async function getCustomersAction() {
 }
 
 import { assertTenantSubscriptionActive } from "@/modules/subscriptions/domain/subscription-policy";
+import { assertRole } from "@/modules/shared/infrastructure/permissions";
 
 export async function createCustomerAction(input: CreateCustomerInput) {
   const cookieStore = cookies();
@@ -43,5 +44,21 @@ export async function createCustomerAction(input: CreateCustomerInput) {
   const customer = await createCustomerService(context, input, prismaCustomerRepository);
   revalidatePath("/customers");
   return { success: true, customer };
+}
+
+export async function deleteCustomerAction(customerId: string) {
+  const cookieStore = cookies();
+  const sessionToken = cookieStore.get("vasaas_session")?.value;
+  if (!sessionToken) throw new Error("No autenticado");
+
+  const context = await resolveTenantContext(sessionToken);
+  assertRole(context, ["OWNER", "ADMIN"]); 
+  
+  await db.customer.deleteMany({
+    where: { id: customerId, tenantId: context.tenantId }
+  });
+  
+  revalidatePath("/customers");
+  return { success: true };
 }
 

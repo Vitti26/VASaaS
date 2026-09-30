@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && prisma db push --accept-data-loss && next build",
+    "build": "prisma generate && next build",
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "next lint",
@@ -14,6 +14,7 @@
     "test:db:up": "docker compose -f docker-compose.test.yml up -d && npx wait-on tcp:5433 -t 10000 && dotenv -e .env.test -- npx prisma db push --skip-generate",
     "test:db:down": "docker compose -f docker-compose.test.yml down -v",
     "test:integration": "dotenv -e .env.test -- vitest run --config vitest.integration.config.ts",
+    "db:migrate:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:seed": "prisma db seed",

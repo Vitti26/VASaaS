@@ -103,7 +103,8 @@ export async function getPublicBranchDataAction(tenantSlug: string, branchSlug: 
   };
 }
 
-import { assertTenantSubscriptionActive } from "@/modules/subscriptions/domain/subscription-policy";
+import { assertTenantSubscriptionActive, PLAN_LIMITS_MAP } from "@/modules/subscriptions/domain/subscription-policy";
+import { assertRole } from "@/modules/shared/infrastructure/permissions";
 
 export async function createPublicBookingAction(input: PublicBookingInput, clientIp: string = "127.0.0.1") {
   const parsed = PublicBookingSchema.safeParse(input);
@@ -138,12 +139,28 @@ export async function createPublicBookingAction(input: PublicBookingInput, clien
   // Server-side subscription soft-lock check for target tenant
   const tenant = await db.tenant.findUnique({
     where: { slug: validated.tenantSlug },
-    select: { id: true },
+    select: { id: true, plan: true },
   });
   if (!tenant) {
     throw new Error("Negocio no encontrado.");
   }
   await assertTenantSubscriptionActive(tenant.id);
+
+  const limits = PLAN_LIMITS_MAP[tenant.plan ?? "STARTER"];
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const appointmentsThisMonth = await db.appointment.count({
+    where: { tenantId: tenant.id, createdAt: { gte: startOfMonth } },
+  });
+
+  if (appointmentsThisMonth >= limits.maxAppointmentsPerMonth) {
+    return {
+      success: false,
+      error: "Este negocio alcanzó el límite de turnos de su plan actual. Contactalo directamente para coordinar por otro medio.",
+    };
+  }
 
   // 5. Active booking quota per phone check against database
   const activeCountForPhone = await db.appointment.count({
@@ -170,6 +187,13 @@ export async function updateAppointmentStatusAction(appointmentId: string, statu
   }
 
   const context = await resolveTenantContext(sessionToken);
+
+  const appointment = await db.appointment.findFirst({ where: { id: appointmentId, tenantId: context.tenantId } });
+  if (!appointment) throw new Error("Turno no encontrado");
+  if (appointment.staffId !== context.userId) {
+    assertRole(context, ["OWNER", "ADMIN"]);
+  }
+
   await assertTenantSubscriptionActive(context.tenantId);
 
   await db.appointment.updateMany({

@@ -4,6 +4,19 @@ import { createTestTenant, createTestUser, cleanupTenant } from "@/test-utils/in
 import { createBranchService } from "@/modules/branches/domain/branch-service";
 import { prismaBranchRepository } from "@/modules/branches/infrastructure/prisma-branch-repository";
 import { resolveTenantContext } from "@/modules/shared/infrastructure/tenant-context";
+import { getBranchesAction } from "@/modules/branches/actions";
+import { vi } from "vitest";
+import * as nextHeaders from "next/headers";
+
+vi.mock("next/headers", () => ({
+  cookies: vi.fn()
+}));
+
+function mockSession(token: string) {
+  (nextHeaders.cookies as any).mockReturnValue({
+    get: () => ({ value: token })
+  });
+}
 
 describe("Multi-tenant Isolation (Integration)", () => {
   let tenantAId: string;
@@ -28,18 +41,18 @@ describe("Multi-tenant Isolation (Integration)", () => {
   });
 
   it("should prevent User B from reading data from Tenant A", async () => {
-    // Context resolved from User B's token
-    const ctx = await resolveTenantContext(userBToken);
-    expect(ctx.tenantId).toBe(tenantBId);
-
-    // Try to query branches - using the Prisma context implicitly enforces tenantId via WHERE clauses
-    // Since we don't have a direct "getBranches" service in the domain that takes TenantContext
-    // We will directly query Prisma to simulate what the action does, but ensuring tenantId is always ctx.tenantId
-    const branchesB = await db.branch.findMany({ where: { tenantId: ctx.tenantId } });
+    // Set the cookie context to User B's token
+    mockSession(userBToken);
+    
+    // Call the real action
+    const branchesB = await getBranchesAction();
     
     // User B should only see Tenant B's branches (1 branch created by fixture)
     expect(branchesB.length).toBe(1);
-    expect(branchesB[0].tenantId).toBe(tenantBId);
+    
+    // Make sure we didn't pull Tenant A's branch
+    const tenantABranchCheck = await db.branch.findFirst({ where: { tenantId: tenantAId } });
+    expect(branchesB.find((b) => b.name === tenantABranchCheck?.name)).toBeUndefined();
   });
 
   it("should prevent User B from writing data to Tenant A", async () => {

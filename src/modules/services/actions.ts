@@ -40,6 +40,7 @@ export async function getServicesAction() {
 }
 
 import { assertTenantSubscriptionActive } from "@/modules/subscriptions/domain/subscription-policy";
+import { assertRole } from "@/modules/shared/infrastructure/permissions";
 
 export async function createServiceAction(input: CreateServiceInput) {
   const cookieStore = cookies();
@@ -47,6 +48,7 @@ export async function createServiceAction(input: CreateServiceInput) {
   if (!sessionToken) throw new Error("No autenticado");
 
   const context = await resolveTenantContext(sessionToken);
+  assertRole(context, ["OWNER", "ADMIN"]);
   await assertTenantSubscriptionActive(context.tenantId);
 
   const service = await createServiceWithRecipe(context, input, prismaServiceRepository);
