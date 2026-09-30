@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TenantContext, UserRoleSchema } from "@/modules/shared/domain/tenant";
+import { assertRole, assertCanAssignRole } from "@/modules/shared/infrastructure/permissions";
 import bcrypt from "bcryptjs";
 
 export const CreateUserSchema = z.object({
@@ -25,14 +26,8 @@ export async function createUserService(
   input: CreateUserInput,
   repo: UserRepository
 ) {
-  if (ctx.role !== "OWNER" && ctx.role !== "ADMIN") {
-    throw new Error("Forbidden: Solo los usuarios OWNER o ADMIN pueden invitar o crear personal");
-  }
-
-  // ADMIN cannot create OWNER users
-  if (ctx.role === "ADMIN" && input.role === "OWNER") {
-    throw new Error("Forbidden: Un usuario ADMIN no puede crear un usuario con rol OWNER");
-  }
+  assertRole(ctx, ["OWNER", "ADMIN"]);
+  assertCanAssignRole(ctx, input.role);
 
   const validated = CreateUserSchema.parse(input);
   const exists = await repo.findByEmail(ctx.tenantId, validated.email);

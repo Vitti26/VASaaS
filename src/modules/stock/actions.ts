@@ -42,6 +42,7 @@ export async function getBranchStockAction(branchId?: string) {
 }
 
 import { assertTenantSubscriptionActive } from "@/modules/subscriptions/domain/subscription-policy";
+import { assertRole } from "@/modules/shared/infrastructure/permissions";
 
 export async function createProductAction(input: CreateProductInput, branchId?: string) {
   const cookieStore = cookies();
@@ -49,6 +50,7 @@ export async function createProductAction(input: CreateProductInput, branchId?: 
   if (!sessionToken) throw new Error("No autenticado");
 
   const context = await resolveTenantContext(sessionToken);
+  assertRole(context, ["OWNER", "ADMIN"]);
   await assertTenantSubscriptionActive(context.tenantId);
   const validated = CreateProductSchema.parse(input);
 
@@ -91,6 +93,11 @@ export async function registerMovementAction(input: RegisterStockMovementInput) 
   const context = await resolveTenantContext(sessionToken);
   await assertTenantSubscriptionActive(context.tenantId);
   const validated = RegisterStockMovementSchema.parse(input);
+
+  // STAFF can register SALE/SERVICE_USAGE/IN/OUT but not ADJUSTMENT (manual correction)
+  if (validated.type === "ADJUSTMENT") {
+    assertRole(context, ["OWNER", "ADMIN"]);
+  }
 
   const result = await registerStockMovementService(context, validated, prismaStockRepository);
   revalidatePath("/stock");

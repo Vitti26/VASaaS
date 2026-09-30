@@ -374,3 +374,20 @@ model InvoiceItem {
 
   @@map("invoice_items")
 }
+
+model ProcessedWebhookEvent {
+  id        String   @id @default(uuid())
+  eventKey  String   @unique @map("event_key")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("processed_webhook_events")
+}
+
+model RateLimitAttempt {
+  id        String   @id @default(uuid())
+  key       String
+  timestamp DateTime @default(now())
+
+  @@index([key, timestamp])
+  @@map("rate_limit_attempts")
+}

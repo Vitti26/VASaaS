@@ -33,7 +33,8 @@ export async function getUsersAction() {
   }));
 }
 
-import { assertTenantSubscriptionActive } from "@/modules/subscriptions/domain/subscription-policy";
+import { assertTenantSubscriptionActive, PLAN_LIMITS_MAP } from "@/modules/subscriptions/domain/subscription-policy";
+import { recordAuditLog } from "@/modules/shared/domain/audit-service";
 
 export async function createUserAction(input: {
   name: string;
@@ -48,6 +49,16 @@ export async function createUserAction(input: {
 
   const context = await resolveTenantContext(sessionToken);
   await assertTenantSubscriptionActive(context.tenantId);
+
+  // Plan limit check: maxStaff
+  const tenant = await db.tenant.findUnique({ where: { id: context.tenantId }, select: { plan: true } });
+  const limits = PLAN_LIMITS_MAP[tenant?.plan ?? "STARTER"];
+  const currentUserCount = await db.user.count({ where: { tenantId: context.tenantId } });
+  if (currentUserCount >= limits.maxStaff) {
+    throw new Error(
+      `Tu plan ${limits.name} permite hasta ${limits.maxStaff} usuario(s). Mejorá tu plan para agregar más.`
+    );
+  }
 
   let branchIds = input.assignedBranchIds;
   if (!branchIds || branchIds.length === 0) {
@@ -74,6 +85,16 @@ export async function createUserAction(input: {
   );
 
   revalidatePath("/users");
+
+  recordAuditLog({
+    tenantId: context.tenantId,
+    userId: context.userId,
+    action: "USER_CREATED",
+    entityName: "User",
+    entityId: user.id,
+    details: `Usuario creado: ${input.name} (${input.email}), rol: ${input.role}`,
+  }).catch(() => {});
+
   return { success: true, user };
 }
 

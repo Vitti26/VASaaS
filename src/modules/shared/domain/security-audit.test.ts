@@ -11,49 +11,49 @@ import { createPublicBookingAction } from "@/modules/agenda/actions";
 import { createSessionToken, verifySessionToken, resolveTenantContext } from "../infrastructure/tenant-context";
 
 describe("Fase 10: Security Audit & Protection Suite", () => {
-  beforeEach(() => {
-    resetRateLimitStore();
+  beforeEach(async () => {
+    await resetRateLimitStore();
   });
 
   describe("1. Rate Limiting Engine", () => {
-    it("should allow requests up to limit and block excess requests", () => {
+    it("should allow requests up to limit and block excess requests", async () => {
       const key = "test-ip-127.0.0.1";
       const max = 3;
       const windowMs = 60 * 1000;
 
-      expect(checkRateLimit(key, max, windowMs).allowed).toBe(true);
-      expect(checkRateLimit(key, max, windowMs).allowed).toBe(true);
-      expect(checkRateLimit(key, max, windowMs).allowed).toBe(true);
+      expect((await checkRateLimit(key, max, windowMs)).allowed).toBe(true);
+      expect((await checkRateLimit(key, max, windowMs)).allowed).toBe(true);
+      expect((await checkRateLimit(key, max, windowMs)).allowed).toBe(true);
 
       // 4th request should be blocked
-      const blocked = checkRateLimit(key, max, windowMs);
+      const blocked = await checkRateLimit(key, max, windowMs);
       expect(blocked.allowed).toBe(false);
       expect(blocked.remaining).toBe(0);
       expect(blocked.resetMs).toBeGreaterThan(0);
     });
 
-    it("should reset rate limit counters when resetRateLimitStore is called", () => {
+    it("should reset rate limit counters when resetRateLimitStore is called", async () => {
       const key = "test-ip-127.0.0.1";
-      checkRateLimit(key, 1, 60000);
-      expect(checkRateLimit(key, 1, 60000).allowed).toBe(false);
+      await checkRateLimit(key, 1, 60000);
+      expect((await checkRateLimit(key, 1, 60000)).allowed).toBe(false);
 
-      resetRateLimitStore();
+      await resetRateLimitStore();
 
-      expect(checkRateLimit(key, 1, 60000).allowed).toBe(true);
+      expect((await checkRateLimit(key, 1, 60000)).allowed).toBe(true);
     });
 
-    it("should enforce IP and Tenant rate limit helpers", () => {
+    it("should enforce IP and Tenant rate limit helpers", async () => {
       const ip = "192.168.1.50";
       for (let i = 0; i < 5; i++) {
-        expect(checkIpBookingRateLimit(ip)).toBe(true);
+        expect(await checkIpBookingRateLimit(ip)).toBe(true);
       }
-      expect(checkIpBookingRateLimit(ip)).toBe(false);
+      expect(await checkIpBookingRateLimit(ip)).toBe(false);
 
       const tenant = "barberia-palermo";
       for (let i = 0; i < 30; i++) {
-        expect(checkTenantBookingRateLimit(tenant)).toBe(true);
+        expect(await checkTenantBookingRateLimit(tenant)).toBe(true);
       }
-      expect(checkTenantBookingRateLimit(tenant)).toBe(false);
+      expect(await checkTenantBookingRateLimit(tenant)).toBe(false);
     });
   });
 

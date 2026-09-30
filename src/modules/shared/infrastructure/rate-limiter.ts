@@ -1,19 +1,17 @@
+import { db } from "@/modules/shared/infrastructure/db";
+
 /**
- * In-memory sliding window rate limiter for VASaaS security protection.
+ * Persisted sliding window rate limiter for VASaaS security protection.
  * Supports rate limiting by IP, Tenant, and active booking quotas.
  */
-
-interface RateLimitRecord {
-  timestamps: number[];
-}
-
-const rateLimitStore = new Map<string, RateLimitRecord>();
 
 /**
  * Resets all stored rate limit windows (useful for unit tests).
  */
-export function resetRateLimitStore(): void {
-  rateLimitStore.clear();
+export async function resetRateLimitStore(): Promise<void> {
+  if (process.env.NODE_ENV === "test") {
+    await db.rateLimitAttempt.deleteMany();
+  }
 }
 
 /**
@@ -22,26 +20,30 @@ export function resetRateLimitStore(): void {
  * @param maxRequests Maximum allowed requests within the time window
  * @param windowMs Time window duration in milliseconds
  */
-export function checkRateLimit(
+export async function checkRateLimit(
   key: string,
   maxRequests: number,
   windowMs: number
-): { allowed: boolean; remaining: number; resetMs: number } {
-  const now = Date.now();
-  const windowStart = now - windowMs;
+): Promise<{ allowed: boolean; remaining: number; resetMs: number }> {
+  const windowStart = new Date(Date.now() - windowMs);
+  const now = new Date();
 
-  let record = rateLimitStore.get(key);
-  if (!record) {
-    record = { timestamps: [] };
-    rateLimitStore.set(key, record);
-  }
+  const attemptsCount = await db.rateLimitAttempt.count({
+    where: {
+      key,
+      timestamp: {
+        gte: windowStart,
+      },
+    },
+  });
 
-  // Remove timestamps outside current sliding window
-  record.timestamps = record.timestamps.filter((ts) => ts > windowStart);
+  if (attemptsCount >= maxRequests) {
+    const oldestAttempt = await db.rateLimitAttempt.findFirst({
+      where: { key, timestamp: { gte: windowStart } },
+      orderBy: { timestamp: "asc" },
+    });
 
-  if (record.timestamps.length >= maxRequests) {
-    const oldestTimestamp = record.timestamps[0];
-    const resetMs = oldestTimestamp + windowMs - now;
+    const resetMs = oldestAttempt ? oldestAttempt.timestamp.getTime() + windowMs - now.getTime() : windowMs;
     return {
       allowed: false,
       remaining: 0,
@@ -49,10 +51,13 @@ export function checkRateLimit(
     };
   }
 
-  record.timestamps.push(now);
+  await db.rateLimitAttempt.create({
+    data: { key, timestamp: now },
+  });
+
   return {
     allowed: true,
-    remaining: maxRequests - record.timestamps.length,
+    remaining: maxRequests - (attemptsCount + 1),
     resetMs: windowMs,
   };
 }
@@ -61,9 +66,9 @@ export function checkRateLimit(
  * Helper to limit public booking attempts by client IP address.
  * Standard rule: Max 5 booking attempts per minute per IP.
  */
-export function checkIpBookingRateLimit(ipAddress: string): boolean {
+export async function checkIpBookingRateLimit(ipAddress: string): Promise<boolean> {
   const key = `ip_booking:${ipAddress}`;
-  const res = checkRateLimit(key, 5, 60 * 1000);
+  const res = await checkRateLimit(key, 5, 60 * 1000);
   return res.allowed;
 }
 
@@ -71,9 +76,9 @@ export function checkIpBookingRateLimit(ipAddress: string): boolean {
  * Helper to limit public booking attempts for a specific tenant.
  * Standard rule: Max 30 booking attempts per minute per tenant.
  */
-export function checkTenantBookingRateLimit(tenantSlug: string): boolean {
+export async function checkTenantBookingRateLimit(tenantSlug: string): Promise<boolean> {
   const key = `tenant_booking:${tenantSlug}`;
-  const res = checkRateLimit(key, 30, 60 * 1000);
+  const res = await checkRateLimit(key, 30, 60 * 1000);
   return res.allowed;
 }
 

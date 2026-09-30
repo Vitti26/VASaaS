@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 import { db } from "@/modules/shared/infrastructure/db";
 import { resolveTenantContext } from "@/modules/shared/infrastructure/tenant-context";
+import { assertRole } from "@/modules/shared/infrastructure/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +73,7 @@ export async function POST(req: Request) {
     }
 
     const context = await resolveTenantContext(sessionToken);
+    assertRole(context, ["OWNER"]);
 
     const body = await req.json();
     const validated = PaymentGatewaysSchema.parse(body);

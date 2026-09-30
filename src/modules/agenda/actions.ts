@@ -130,7 +130,7 @@ export async function createPublicBookingAction(input: PublicBookingInput, clien
   }
 
   // 4. Rate limit check by Tenant (max 30 bookings per minute per tenant)
-  const tenantCheck = checkTenantBookingRateLimit(validated.tenantSlug);
+  const tenantCheck = await checkTenantBookingRateLimit(validated.tenantSlug);
   if (!tenantCheck) {
     throw new Error("El sistema de reservas del negocio se encuentra recibiendo muchas solicitudes simultáneas. Intente nuevamente en unos instantes.");
   }

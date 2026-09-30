@@ -56,6 +56,8 @@ export async function getAfipConfigAction() {
 }
 
 import { assertTenantSubscriptionActive } from "@/modules/subscriptions/domain/subscription-policy";
+import { assertRole } from "@/modules/shared/infrastructure/permissions";
+import { recordAuditLog } from "@/modules/shared/domain/audit-service";
 
 export async function saveAfipConfigAction(input: SaveAfipConfigInput) {
   const cookieStore = cookies();
@@ -63,6 +65,7 @@ export async function saveAfipConfigAction(input: SaveAfipConfigInput) {
   if (!sessionToken) throw new Error("No autenticado");
 
   const context = await resolveTenantContext(sessionToken);
+  assertRole(context, ["OWNER"]);
   await assertTenantSubscriptionActive(context.tenantId);
   const validated = SaveAfipConfigSchema.parse(input);
 
@@ -90,6 +93,17 @@ export async function saveAfipConfigAction(input: SaveAfipConfigInput) {
   });
 
   revalidatePath("/billing");
+
+  // Audit trail for fiscal config changes
+  recordAuditLog({
+    tenantId: context.tenantId,
+    userId: context.userId,
+    action: "AFIP_CONFIG_CHANGED",
+    entityName: "AfipConfig",
+    entityId: validated.cuit,
+    details: `CUIT: ${validated.cuit}, Punto de venta: ${validated.salesPoint}, Env: ${validated.env}`,
+  }).catch(() => {}); // fire-and-forget, don't block the response
+
   return { success: true };
 }
 

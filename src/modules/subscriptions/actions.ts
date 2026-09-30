@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { db } from "@/modules/shared/infrastructure/db";
 import { resolveTenantContext } from "@/modules/shared/infrastructure/tenant-context";
 import { MercadoPagoSubscriptionClient } from "./infrastructure/mercadopago-client";
+import { assertRole } from "@/modules/shared/infrastructure/permissions";
 
 export async function getTenantSubscriptionAction() {
   try {
@@ -56,6 +57,7 @@ export async function subscribeToPlanAction(plan: "STARTER" | "PRO") {
 
     // Security rule: Always resolve tenantId from authenticated session context, NEVER from client
     const context = await resolveTenantContext(sessionToken);
+    assertRole(context, ["OWNER"]);
 
     const user = await db.user.findFirst({
       where: { tenantId: context.tenantId, id: context.userId },
@@ -91,7 +93,7 @@ export async function subscribeToPlanAction(plan: "STARTER" | "PRO") {
           tenantId: context.tenantId,
           mpSubscriptionId: checkout.subscriptionId,
           status: "TRIALING",
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
         },
       });
     }

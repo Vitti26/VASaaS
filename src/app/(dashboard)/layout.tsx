@@ -29,7 +29,10 @@ export default function DashboardLayout({
     role: "STAFF",
     tenantName: "Mi Negocio",
   });
-  const [simulatedTrialDay, setSimulatedTrialDay] = useState<number>(1);
+  const [isGracePeriod, setIsGracePeriod] = useState(false);
+  const [isBlackout, setIsBlackout] = useState(false);
+  const [daysIntoGrace, setDaysIntoGrace] = useState(0);
+  const [fadingOpacity, setFadingOpacity] = useState(0);
 
   useEffect(() => {
     getCurrentUserDetailAction().then((u) => {
@@ -46,19 +49,26 @@ export default function DashboardLayout({
       if (res.success && res.subscription) {
         const sub = res.subscription;
         if (sub.status === "ACTIVE") {
-          setSimulatedTrialDay(1);
-        } else {
-          const daysElapsed = Math.max(1, 30 - sub.trialDaysLeft);
-          setSimulatedTrialDay(daysElapsed);
+          // Active subscription — no trial logic needed
+          setIsGracePeriod(false);
+          setIsBlackout(false);
+          setFadingOpacity(0);
+        } else if (sub.trialEndsAt) {
+          const trialEndsAt = new Date(sub.trialEndsAt).getTime();
+          const graceEndsAt = trialEndsAt + 7 * 24 * 60 * 60 * 1000;
+          const now = Date.now();
+          const trialExpired = now > trialEndsAt;
+          const graceExpired = now > graceEndsAt;
+          const graceDays = Math.max(0, Math.ceil((now - trialEndsAt) / (1000 * 60 * 60 * 24)));
+
+          setIsGracePeriod(trialExpired && !graceExpired);
+          setIsBlackout(graceExpired);
+          setDaysIntoGrace(graceDays);
+          setFadingOpacity(trialExpired ? (graceExpired ? 1.0 : Math.min(1.0, graceDays / 7)) : 0);
         }
       }
     });
   }, []);
-
-  const isGracePeriod = simulatedTrialDay > 30;
-  const isBlackout = simulatedTrialDay >= 37;
-  const extraDays = Math.min(7, Math.max(0, simulatedTrialDay - 30));
-  const fadingOpacity = simulatedTrialDay <= 30 ? 0 : isBlackout ? 1.0 : extraDays / 7;
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([
     {
@@ -108,7 +118,9 @@ export default function DashboardLayout({
   const handleQuickSubscribe = (plan: "STARTER" | "PRO") => {
     const price = plan === "PRO" ? "$100.000 ARS/mes" : "$50.000 ARS/mes";
     if (confirm(`Redirigiendo a Mercado Pago para suscribirse al Plan ${plan} (${price})...`)) {
-      setSimulatedTrialDay(1); // Reset trial to active state on payment
+      setIsGracePeriod(false);
+      setIsBlackout(false);
+      setFadingOpacity(0);
       router.push("/subscription");
     }
   };
@@ -416,10 +428,10 @@ export default function DashboardLayout({
               <span className="w-3 h-3 rounded-full bg-[#c6f500] animate-ping shrink-0" />
               <div>
                 <p className="text-xs font-extrabold text-white">
-                  ⚠️ Período de Gracia: Día {simulatedTrialDay} de 37 — Disminuyendo visibilidad del panel ({(fadingOpacity * 100).toFixed(0)}% de opacidad oscura)
+                  ⚠️ Período de Gracia: Día {daysIntoGrace} de 7 — Disminuyendo visibilidad del panel ({(fadingOpacity * 100).toFixed(0)}% de opacidad oscura)
                 </p>
                 <p className="text-[11px] text-slate-300 mt-0.5">
-                  El período de prueba de 30 días ha finalizado. La pantalla se oscurecerá gradualmente durante esta semana hasta quedar completamente negra al día 37.
+                  El período de prueba ha finalizado. La pantalla se oscurecerá gradualmente durante esta semana hasta quedar completamente bloqueada.
                 </p>
               </div>
             </div>

@@ -5,7 +5,6 @@ import { z } from "zod";
 import { processMercadoPagoWebhook } from "@/modules/subscriptions/domain/subscription-service";
 import { verifyMercadoPagoWebhookSignature } from "@/modules/subscriptions/domain/subscription-policy";
 import { db } from "@/modules/shared/infrastructure/db";
-import { processedWebhookEvents } from "@/modules/subscriptions/infrastructure/mercadopago-webhook";
 
 const MercadoPagoWebhookBodySchema = z.object({
   action: z.string().optional(),
@@ -67,8 +66,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 4. Consultar el estado y plan REALES vía la API de Mercado Pago. Si falla, no seguimos:
-    //    devolvemos error para que Mercado Pago reintente el webhook más tarde.
+    // 4. Consultar el estado y plan REALES vía la API de Mercado Pago.
     let realStatus: "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELED" = "ACTIVE";
     let realPlan: "STARTER" | "PRO" = "PRO";
 
@@ -89,7 +87,6 @@ export async function POST(req: Request) {
         else if (mpData.status === "cancelled") realStatus = "CANCELED";
         else realStatus = "TRIALING";
 
-        // external_reference se guarda como "tenantId:plan" al crear el checkout
         const refParts = (mpData.external_reference || "").split(":");
         realPlan = refParts[1] === "STARTER" ? "STARTER" : "PRO";
       } catch (err: any) {
@@ -101,10 +98,17 @@ export async function POST(req: Request) {
       realPlan = (validated.plan as any) || "PRO";
     }
 
-    // 5. Idempotencia: basada en datos ya verificados, no en el body original
+    // 5. Idempotencia: persistida en la base de datos (no en memoria)
+    //    Usa violación de unique constraint como señal de "ya procesado"
     const eventKey = `${mpSubscriptionId}:${realStatus}:${realPlan}`;
-    if (processedWebhookEvents.has(eventKey)) {
-      return NextResponse.json({ success: true, message: "Evento ya procesado (Idempotente)" });
+    try {
+      await db.processedWebhookEvent.create({ data: { eventKey } });
+    } catch (err: any) {
+      // Violación de unique constraint = evento duplicado
+      if (err?.code === "P2002") {
+        return NextResponse.json({ success: true, message: "Evento ya procesado (Idempotente)" });
+      }
+      throw err;
     }
 
     const prismaRepo = {
@@ -131,7 +135,6 @@ export async function POST(req: Request) {
       { action: validated.action ?? "update", data: { id: mpSubscriptionId }, tenantId, newStatus: realStatus, plan: realPlan },
       prismaRepo
     );
-    processedWebhookEvents.add(eventKey);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

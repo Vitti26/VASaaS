@@ -29,7 +29,9 @@ export async function getBranchesAction() {
   }));
 }
 
-import { assertTenantSubscriptionActive } from "@/modules/subscriptions/domain/subscription-policy";
+import { assertTenantSubscriptionActive, PLAN_LIMITS_MAP } from "@/modules/subscriptions/domain/subscription-policy";
+import { assertRole } from "@/modules/shared/infrastructure/permissions";
+import { recordAuditLog } from "@/modules/shared/domain/audit-service";
 
 export async function createBranchAction(input: CreateBranchInput) {
   const cookieStore = cookies();
@@ -37,10 +39,31 @@ export async function createBranchAction(input: CreateBranchInput) {
   if (!sessionToken) throw new Error("No autenticado");
 
   const context = await resolveTenantContext(sessionToken);
+  assertRole(context, ["OWNER"]);
   await assertTenantSubscriptionActive(context.tenantId);
+
+  // Plan limit check: maxBranches
+  const tenant = await db.tenant.findUnique({ where: { id: context.tenantId }, select: { plan: true } });
+  const limits = PLAN_LIMITS_MAP[tenant?.plan ?? "STARTER"];
+  const currentBranchCount = await db.branch.count({ where: { tenantId: context.tenantId } });
+  if (currentBranchCount >= limits.maxBranches) {
+    throw new Error(
+      `Tu plan ${limits.name} permite hasta ${limits.maxBranches} sucursal(es). Mejorá tu plan para agregar más.`
+    );
+  }
 
   const branch = await createBranchService(context, input, prismaBranchRepository);
   revalidatePath("/branches");
+
+  recordAuditLog({
+    tenantId: context.tenantId,
+    userId: context.userId,
+    action: "BRANCH_CREATED",
+    entityName: "Branch",
+    entityId: branch.id,
+    details: `Sucursal creada: ${input.name}`,
+  }).catch(() => {});
+
   return { success: true, branch };
 }
 
